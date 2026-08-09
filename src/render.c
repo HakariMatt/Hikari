@@ -2,6 +2,7 @@
 #define _RENDER_C
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "settings.h"
 #include "types.h"
@@ -11,12 +12,56 @@
 #include "bvh.c"
 #include "colour.c"
 
+u64 rng_state;
+
 static colour sky_colour(ray r) {
 	v3 unit_dir = v3_norm(r.dir);
     f64 a = 0.5 * (unit_dir.y + 1.0);
     v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
-    v3 t = v3_add(v3_scale(white, 1.0 - a), v3_scale(blue, a));
+    v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
     return (colour){t.x, t.y, t.z};
+}
+
+// modified function from
+// https://github.com/SebLague/Ray-Tracing/blob/Episode01/Assets/Scripts/Shaders/RayTracing.shader
+u64 next_random(u64* state) {
+	((*state)) = (*state) * 747796405 + 2891336453;
+	u64 result = (((*state) >> (((*state) >> 28) + 4)) ^ (*state)) * 277803737;
+	result = (result >> 22) ^ result;
+	return result;
+}
+
+f64 random_value(u64* state) {
+	return next_random(state) / 4294967295.0; // 2^32 - 1
+}
+
+f64 random_value_normal_distribution(u64* state) {
+	f64 theta = 2 * 3.1415926 * random_value(state);
+	f64 rho = sqrt(-2 * log(random_value(state)));
+	return rho * cos(theta);
+}
+
+static v3 m_diffuse(v3 v, v3 n) {
+
+	v3 rand_bounce = v3_norm((v3){
+		.x = random_value(&rng_state),
+		.y = random_value(&rng_state),
+		.z = random_value(&rng_state),
+	});
+
+	if (v3_dot(n, rand_bounce) < 0) {
+		return v3_scale(rand_bounce, -1.0);
+	} else {
+		return rand_bounce;
+	}
+}
+
+static v3 random_dir() {
+	return v3_norm((v3){
+		.x = random_value(&rng_state),
+		.y = random_value(&rng_state),
+		.z = random_value(&rng_state),
+	});
 }
 
 static colour ray_color(ray r, object obj, sz depth) {
@@ -33,11 +78,16 @@ static colour ray_color(ray r, object obj, sz depth) {
     	return sky_colour(r);
 	}
 
-	v3 bounce_dir = v3_reflect(r.dir, hr.normal);
+	// v3 bounce_dir = v3_reflect(r.dir, hr.normal);
+
+	// v3 bounce_dir = m_diffuse(r.dir, hr.normal);
+	v3 bounce_dir = v3_norm(v3_add(hr.normal, random_dir()));
 	ray new_r = {v3_add(ray_at(r, hr.t), v3_scale(hr.normal, 0.0000001)), bounce_dir};
 
     colour incoming = ray_color(new_r, obj, depth+1);
+
     return colour_multiply(incoming, (colour){0.8, 0.8, 0.8});
+    // return incoming;
 
 }
 
@@ -46,16 +96,27 @@ void render(u8* img, int width, int height, camera cam, object obj) {
 	#pragma omp parallel for schedule(dynamic)
 	for (sz y = 0; y < height; ++y) {
 		for (sz x = 0; x < width; ++x) {
-			f64 u = (f64)x / (width - 1);
-			f64 v = 1.0 - (f64)y / (height - 1);
+			colour total_light = {0};
 
-			ray r = camera_get_ray(cam, u, v);
-			colour col = ray_color(r, obj, 1);
+			for (sz s = 0; s < N_SAMPLES; ++s) {
+				f64 u = (f64)x / (width - 1);
+				f64 v = 1.0 - (f64)y / (height - 1);
+
+				ray r = camera_get_ray(cam, u, v);
+				colour sample = colour_add(total_light, ray_color(r, obj, 1));
+				total_light = sample;
+			}
+
+			colour pixel = {
+				total_light.r / N_SAMPLES,
+				total_light.g / N_SAMPLES,
+				total_light.b / N_SAMPLES,
+			};
 
 			sz idx = (y * width + x) * 3;
-			img[idx + 0] = (u8)(255.999 * col.r);
-			img[idx + 1] = (u8)(255.999 * col.g);
-			img[idx + 2] = (u8)(255.999 * col.b);
+			img[idx + 0] = (u8)(255.999 * pixel.r);
+			img[idx + 1] = (u8)(255.999 * pixel.g);
+			img[idx + 2] = (u8)(255.999 * pixel.b);
 		}
 
 		// #pragma omp atomic

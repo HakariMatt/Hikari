@@ -7,8 +7,12 @@ typedef struct {
 	f64 r, g, b;
 } colour;
 
-static colour colour_multiply(colour a, colour b) {
+static inline colour colour_multiply(colour a, colour b) {
 	return (colour) { a.r * b.r, a.g * b.g, a.b * b.b };
+}
+
+static inline colour colour_add(colour a, colour b) {
+	return (colour) { a.r+b.r, a.g+b.g, a.b+b.b };
 }
 
 #endif
