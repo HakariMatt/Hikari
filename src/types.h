@@ -38,9 +38,18 @@ typedef struct {
 	f64 max_x, min_x, max_y, min_y, max_z, min_z;
 } boundbox;
 
+typedef struct bvh_node {
+	boundbox bbox;
+	sz* tri_idxs;
+	sz  tri_count;
+	struct bvh_node* childA;
+	struct bvh_node* childB;
+} bvh_node;
+
 typedef struct {
 	mesh mesh;
 	boundbox bbox;
+	bvh_node* bvh;
 } object;
 
 typedef struct { f64 t; v3 normal; int hit; } hit_result;

@@ -6,6 +6,23 @@
 #include <math.h>
 #include "types.h"
 
+static boundbox boundbox_make(v3* verts, sz vcount) {
+	f64 max_x = -INFINITY, max_y = -INFINITY, max_z = -INFINITY;
+	f64 min_x =  INFINITY, min_y =  INFINITY, min_z =  INFINITY;
+
+	for (sz i = 0; i < vcount; ++i) {
+	    v3 vert = verts[i];
+	    max_x = fmax(max_x, vert.x);
+	    max_y = fmax(max_y, vert.y);
+	    max_z = fmax(max_z, vert.z);
+	    min_x = fmin(min_x, vert.x);
+	    min_y = fmin(min_y, vert.y);
+	    min_z = fmin(min_z, vert.z);
+	}
+
+	return (boundbox){ max_x, min_x, max_y, min_y, max_z, min_z };
+}
+
 static object mesh_load_obj(const char* path) {
 	FILE* f = fopen(path, "r");
 	if (!f) { fprintf(stderr, "could not open %s\n", path); exit(1); }
@@ -45,21 +62,10 @@ static object mesh_load_obj(const char* path) {
 		}
 	}
 	fclose(f);
-	f64 max_x = -INFINITY, max_y = -INFINITY, max_z = -INFINITY;
-	f64 min_x =  INFINITY, min_y =  INFINITY, min_z =  INFINITY;
 
-	for (sz i = 0; i < vcount; ++i) {
-	    v3 vert = verts[i];
-	    max_x = fmax(max_x, vert.x);
-	    max_y = fmax(max_y, vert.y);
-	    max_z = fmax(max_z, vert.z);
-	    min_x = fmin(min_x, vert.x);
-	    min_y = fmin(min_y, vert.y);
-	    min_z = fmin(min_z, vert.z);
-	}
 	return (object){
 		(mesh){ verts, vcount, tris, tcount },
-		(boundbox){ max_x, min_x, max_y, min_y, max_z, min_z }
+		boundbox_make(verts, vcount)
 	};
 	// return (mesh){ verts, vcount, tris, tcount };
 }

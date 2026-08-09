@@ -6,20 +6,20 @@
 
 // call this from main() — raylib must run on the main thread on macOS
 static void display_run(u8* img, int width, int height, volatile int* render_done) {
+	SetConfigFlags(FLAG_WINDOW_HIGHDPI);
     InitWindow(width, height, "render preview");
-    SetTargetFPS(15);
+    SetTargetFPS(30);
 
     Image im = {
         .data = img,
         .width = width,
         .height = height,
         .mipmaps = 1,
-        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8   // matches your img layout exactly
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8
     };
     Texture2D tex = LoadTextureFromImage(im);
 
     while (!WindowShouldClose()) {
-        // straight re-upload of whatever img currently holds — no locking, may tear
         UpdateTexture(tex, img);
 
         BeginDrawing();
