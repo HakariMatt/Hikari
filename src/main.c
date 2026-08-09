@@ -46,7 +46,7 @@ int main(void) {
     );
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
-    object obj = mesh_load_obj("/Users/hakarimatt/Documents/Programming/Raytracer/Matomi.obj");
+    object obj = mesh_load_obj("Matomi.obj");
 
     clock_gettime(CLOCK_MONOTONIC, &t1);
 
