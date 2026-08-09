@@ -1,5 +1,5 @@
-CC = gcc
-CFLAGS =
+CC = clang
+CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 target = ray
 
 sources = main.c
