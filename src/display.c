@@ -1,11 +1,7 @@
-#ifndef _DISPLAY_C
-#define _DISPLAY_C
+#include "../include/raylib.h"
+#include "../include/display.h"
 
-#include "raylib.h"
-#include "types.h"
-
-// call this from main() — raylib must run on the main thread on macOS
-static void display_run(u8* img, int width, int height, volatile int* render_done) {
+void display_run(u8* img, int width, int height, volatile int* render_done) {
 	SetConfigFlags(FLAG_WINDOW_HIGHDPI);
     InitWindow(width, height, "render preview");
     SetTargetFPS(30);
@@ -32,5 +28,3 @@ static void display_run(u8* img, int width, int height, volatile int* render_don
     UnloadTexture(tex);
     CloseWindow();
 }
-
-#endif

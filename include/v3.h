@@ -1,5 +1,5 @@
-#ifndef _V3_C
-#define _V3_C
+#ifndef _V3_H
+#define _V3_H
 
 #include "types.h"
 #include <math.h>

@@ -6,13 +6,13 @@
 #include <string.h>
 #include <time.h>
 
-#include "settings.h"
-#include "display.c"
-#include "types.h"
-#include "camera.c"
-#include "mesh.c"
-#include "render.c"
-#include "bvh.c"
+#include "../include/settings.h"
+#include "../include/display.h"
+#include "../include/types.h"
+#include "../include/camera.h"
+#include "../include/mesh.h"
+#include "../include/bvh.h"
+#include "../include/render.h"
 
 // #define SECONDS(t1, t2) (((double) (t2 - t1)) / CLOCKS_PER_SEC)
 
@@ -20,15 +20,6 @@ static double seconds_since(struct timespec start, struct timespec end) {
     return (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) * 1e-9;
 }
 
-// #define LOWRES
-
-// #ifdef LOWRES
-// 	#define WIDTH  320
-// 	#define HEIGHT 240
-// #else
-// 	#define WIDTH  (640)
-// 	#define HEIGHT (480)
-// #endif
 #define IMG_SIZE WIDTH*HEIGHT*3
 
 typedef struct {

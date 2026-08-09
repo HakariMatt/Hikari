@@ -1,10 +1,7 @@
-#ifndef _MESH_C
-#define _MESH_C
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "types.h"
+#include "../include/mesh.h"
 
 static boundbox boundbox_make(v3* verts, sz vcount) {
 	f64 max_x = -INFINITY, max_y = -INFINITY, max_z = -INFINITY;
@@ -23,7 +20,7 @@ static boundbox boundbox_make(v3* verts, sz vcount) {
 	return (boundbox){ max_x, min_x, max_y, min_y, max_z, min_z };
 }
 
-static object mesh_load_obj(const char* path) {
+object mesh_load_obj(const char* path) {
 	FILE* f = fopen(path, "r");
 	if (!f) { fprintf(stderr, "could not open %s\n", path); exit(1); }
 
@@ -42,8 +39,6 @@ static object mesh_load_obj(const char* path) {
 				verts[vcount++] = p;
 			}
 		} else if (line[0] == 'f' && line[1] == ' ') {
-			// parse all vertex indices on the line (first int of each token),
-			// then fan-triangulate: (0,1,2), (0,2,3), (0,3,4), ...
 			u32 idx[32];
 			sz n = 0;
 			char* p = line + 1;
@@ -52,8 +47,8 @@ static object mesh_load_obj(const char* path) {
 				if (*p == '\0' || *p == '\n') break;
 				int v;
 				if (sscanf(p, "%d", &v) != 1) break;
-				idx[n++] = (u32)(v - 1); // OBJ is 1-indexed
-				while (*p && *p != ' ' && *p != '\n') p++; // skip to next token
+				idx[n++] = (u32)(v - 1);
+				while (*p && *p != ' ' && *p != '\n') p++;
 			}
 			for (sz i = 1; i + 1 < n; ++i) {
 				if (tcount == tcap) { tcap *= 2; tris = realloc(tris, tcap * sizeof(tri)); }
@@ -70,9 +65,7 @@ static object mesh_load_obj(const char* path) {
 	// return (mesh){ verts, vcount, tris, tcount };
 }
 
-static void mesh_free(mesh m) {
+void mesh_free(mesh m) {
 	free(m.verts);
 	free(m.tris);
 }
-
-#endif

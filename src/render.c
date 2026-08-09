@@ -1,16 +1,14 @@
-#ifndef _RENDER_C
-#define _RENDER_C
-
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "settings.h"
-#include "types.h"
-#include "v3.c"
-#include "intersect.c"
-#include "camera.c"
-#include "bvh.c"
-#include "colour.c"
+#include "../include/settings.h"
+#include "../include/types.h"
+#include "../include/v3.h"
+#include "../include/intersect.h"
+#include "../include/camera.h"
+#include "../include/bvh.h"
+#include "../include/colour.h"
+#include "../include/render.h"
 
 u64 rng_state;
 
@@ -24,18 +22,18 @@ static colour sky_colour(ray r) {
 
 // modified function from
 // https://github.com/SebLague/Ray-Tracing/blob/Episode01/Assets/Scripts/Shaders/RayTracing.shader
-u64 next_random(u64* state) {
+static u64 next_random(u64* state) {
 	((*state)) = (*state) * 747796405 + 2891336453;
 	u64 result = (((*state) >> (((*state) >> 28) + 4)) ^ (*state)) * 277803737;
 	result = (result >> 22) ^ result;
 	return result;
 }
 
-f64 random_value(u64* state) {
+static f64 random_value(u64* state) {
 	return next_random(state) / 4294967295.0; // 2^32 - 1
 }
 
-f64 random_value_normal_distribution(u64* state) {
+static f64 random_value_normal_distribution(u64* state) {
 	f64 theta = 2 * 3.1415926 * random_value(state);
 	f64 rho = sqrt(-2 * log(random_value(state)));
 	return rho * cos(theta);
@@ -118,19 +116,5 @@ void render(u8* img, int width, int height, camera cam, object obj) {
 			img[idx + 1] = (u8)(255.999 * pixel.g);
 			img[idx + 2] = (u8)(255.999 * pixel.b);
 		}
-
-		// #pragma omp atomic
-	 	// done++;
-
-	    // if (done % 16 == 0) {          // print every 16 rows
-	    //     #pragma omp critical
-	    //     {
-	    //         f64 pct = 100.0 * (f64)done / height;
-	    //         fprintf(stderr, "\rrendering... %5.1f%%", pct);
-	    //         fflush(stderr);
-	    //     }
-	    // }
 	}
 }
-
-#endif

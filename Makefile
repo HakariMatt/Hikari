@@ -4,7 +4,7 @@ CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt
          -framework Cocoa -framework OpenGL -framework IOKit
 target = ray
 
-sources = src/main.c
+sources = $(wildcard src/*.c)
 
 all:
 	$(CC) $(CFLAGS) $(sources) -o $(target)

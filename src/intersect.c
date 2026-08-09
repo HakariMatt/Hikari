@@ -1,10 +1,6 @@
-#ifndef _INTERSECT_C
-#define _INTERSECT_C
+#include "../include/intersect.h"
 
-#include "types.h"
-#include "v3.c"
-
-static hit_result hit_triangle(v3 v0, v3 v1, v3 v2, ray r) {
+hit_result hit_triangle(v3 v0, v3 v1, v3 v2, ray r) {
 	hit_result miss = { .hit = 0 };
 	const f64 eps = 1e-8;
 
@@ -32,8 +28,7 @@ static hit_result hit_triangle(v3 v0, v3 v1, v3 v2, ray r) {
 	return (hit_result){ t, n, 1 };
 }
 
-// Returns true if the ray hits (or starts inside) the AABB
-static int hit_bbox(ray r, boundbox b) {
+int hit_bbox(ray r, boundbox b) {
     f64 tmin = 0.0;
     f64 tmax = INFINITY;
 
@@ -65,5 +60,3 @@ static int hit_bbox(ray r, boundbox b) {
 
     return tmax >= tmin;
 }
-
-#endif

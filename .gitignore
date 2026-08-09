@@ -1,4 +1,7 @@
 .DS_Store
 output.ppm
+output.png
 Matomi.mtl
 Matomi.obj
+sphere.obj
+ray

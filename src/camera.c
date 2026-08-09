@@ -1,9 +1,7 @@
-#ifndef _CAMERA_C
-#define _CAMERA_C
-
 #include <math.h>
-#include "types.h"
-#include "v3.c"
+
+#include "../include/camera.h"
+#include "../include/v3.h"
 
 camera camera_make(v3 lookfrom, v3 lookat, v3 vup,
 	f64 vfov_deg, f64 aspect, f64 aperture, f64 focus_dist) {
@@ -27,12 +25,10 @@ camera camera_make(v3 lookfrom, v3 lookat, v3 vup,
 	return c;
 }
 
-static inline ray camera_get_ray(camera c, f64 s, f64 t) {
+ray camera_get_ray(camera c, f64 s, f64 t) {
 	v3 dir = v3_sub(
 		v3_add(v3_add(c.lower_left, v3_scale(c.horizontal, s)), v3_scale(c.vertical, t)),
 		c.origin
 	);
 	return (ray){c.origin, dir};
 }
-
-#endif

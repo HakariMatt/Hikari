@@ -1,15 +1,8 @@
-#ifndef _BVH_C
-#define _BVH_C
-
 #include <stdlib.h>
 #include <math.h>
-#include "types.h"
-// #include "v3.c"
-// #include "mesh.c"
-#include "intersect.c"
-
-#define BVH_MAX_DEPTH   24
-#define BVH_LEAF_TRIS   4
+#include "../include/bvh.h"
+#include "../include/settings.h"
+#include "../include/intersect.h"
 
 static boundbox bvh_compute_bbox(mesh m, sz* tri_idxs, sz count) {
 	f64 max_x = -INFINITY, max_y = -INFINITY, max_z = -INFINITY;
@@ -34,7 +27,7 @@ static v3 bvh_centroid(mesh m, sz tri_idx) {
 	return (v3){ (a.x+b.x+c.x)/3.0, (a.y+b.y+c.y)/3.0, (a.z+b.z+c.z)/3.0 };
 }
 
-// qsort comparator state — axis to sort centroids on
+// qsort comparator
 static mesh g_sort_mesh;
 static int g_sort_axis;
 static int bvh_cmp_centroid(const void* pa, const void* pb) {
@@ -88,16 +81,15 @@ static bvh_node* bvh_build(mesh m, sz* tri_idxs, sz count, sz depth) {
 		else               right[nright++] = tri_idxs[i];
 	}
 
-	// degenerate case: everything landed on one side — fall back to a median split
 	if (nleft == 0 || nright == 0) {
-		for (sz i = 0; i < count; ++i) left[i] = tri_idxs[i]; // reuse as scratch
+		for (sz i = 0; i < count; ++i) left[i] = tri_idxs[i];
 		g_sort_mesh = m;
 		g_sort_axis = (int)axis;
 		qsort(left, count, sizeof(sz), bvh_cmp_centroid);
 
 		nleft = count / 2;
 		nright = count - nleft;
-		for (sz i = 0; i < nright; ++i) right[i] = left[nleft + i]; // left[0..nleft) already sorted in place
+		for (sz i = 0; i < nright; ++i) right[i] = left[nleft + i];
 	}
 
 	bvh_node* node = malloc(sizeof(bvh_node));
@@ -112,7 +104,7 @@ static bvh_node* bvh_build(mesh m, sz* tri_idxs, sz count, sz depth) {
 	return node;
 }
 
-static bvh_node* bvh_build_root(mesh m) {
+bvh_node* bvh_build_root(mesh m) {
 	sz* all = malloc(m.ntris * sizeof(sz));
 	for (sz i = 0; i < m.ntris; ++i) all[i] = i;
 	bvh_node* root = bvh_build(m, all, m.ntris, 0);
@@ -120,7 +112,7 @@ static bvh_node* bvh_build_root(mesh m) {
 	return root;
 }
 
-static void bvh_free(bvh_node* node) {
+void bvh_free(bvh_node* node) {
 	if (!node) return;
 	if (node->tri_idxs) free(node->tri_idxs);
 	bvh_free(node->childA);
@@ -128,9 +120,7 @@ static void bvh_free(bvh_node* node) {
 	free(node);
 }
 
-// Traversal: replaces the brute-force triangle loop in render.c's ray_color.
-// closest is the current best t (pass INFINITY at the top level call).
-static hit_result bvh_hit(bvh_node* node, mesh m, ray r, f64 closest) {
+hit_result bvh_hit(bvh_node* node, mesh m, ray r, f64 closest) {
 	hit_result miss = { .hit = 0 };
 	if (!node || !hit_bbox(r, node->bbox)) return miss;
 
@@ -151,8 +141,6 @@ static hit_result bvh_hit(bvh_node* node, mesh m, ray r, f64 closest) {
 	if (hitA.hit) closest = hitA.t;
 	hit_result hitB = bvh_hit(node->childB, m, r, closest);
 
-	if (hitB.hit) return hitB;      // hitB.t is already < closest (which includes hitA.t)
+	if (hitB.hit) return hitB;
 	return hitA;
 }
-
-#endif
