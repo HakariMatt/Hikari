@@ -40,9 +40,17 @@ static void* render_thread_fn(void* arg) {
 int main(void) {
 	struct timespec t0, t1, t2, t3, t4;
 
+    // camera cam = camera_make(
+    //     (v3){-1.5,1.5,1.5}, (v3){0,.56,0}, (v3){0,1,0},
+    //     30.0, (f64)WIDTH/HEIGHT, 0.0, 1.0
+    // );
+    // camera cam = camera_make(
+    //     (v3){0,-2.46,0}, (v3){0,0,0}, (v3){0,0,1},
+    //     90.0, (f64)WIDTH/HEIGHT, 0.0, 1.0
+    // );
     camera cam = camera_make(
-        (v3){-1.5,1.5,1.5}, (v3){0,.56,0}, (v3){0,1,0},
-        30.0, (f64)WIDTH/HEIGHT, 0.0, 1.0
+        (v3)CAMERA_POS, (v3)CAMERA_LOOKAT, (v3){0,0,1},
+        CAMERA_FOV, (f64)WIDTH/HEIGHT, 0.0, 1.0
     );
 
     clock_gettime(CLOCK_MONOTONIC, &t0);

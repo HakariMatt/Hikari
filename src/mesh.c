@@ -34,7 +34,8 @@ object mesh_load_obj(const char* path) {
 	while (fgets(line, sizeof(line), f)) {
 		if (line[0] == 'v' && line[1] == ' ') {
 			v3 p;
-			if (sscanf(line + 2, "%lf %lf %lf", &p.x, &p.y, &p.z) == 3) {
+			if (sscanf(line + 2, "%lf %lf %lf", &p.x, &p.z, &p.y) == 3) {
+				p.y *= -1;
 				if (vcount == vcap) { vcap *= 2; verts = realloc(verts, vcap * sizeof(v3)); }
 				verts[vcount++] = p;
 			}

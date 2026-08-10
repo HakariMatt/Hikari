@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -14,7 +15,7 @@ u64 rng_state;
 
 static colour sky_colour(ray r) {
 	v3 unit_dir = v3_norm(r.dir);
-    f64 a = 0.5 * (unit_dir.y + 1.0);
+    f64 a = 0.5 * (unit_dir.z + 1.0);
     v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
     v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
     return (colour){t.x, t.y, t.z};
@@ -62,6 +63,13 @@ static v3 random_dir() {
 	});
 }
 
+static v3 random_point_in_circle(u64* rngState)
+{
+	f64 angle = random_value(rngState) * 2 * M_PI;
+	v3 point_on_circle = {cos(angle), sin(angle), 0};
+	return v3_scale(point_on_circle, sqrt(random_value(rngState)));
+}
+
 static colour ray_color(ray r, object obj, sz depth) {
 	if (depth >= MAX_BOUNCES) {
 		return (colour){0,0,0};
@@ -84,7 +92,10 @@ static colour ray_color(ray r, object obj, sz depth) {
 
     colour incoming = ray_color(new_r, obj, depth+1);
 
-    return colour_multiply(incoming, (colour){0.8, 0.8, 0.8});
+    // f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
+    // if (random_value(&rng_state) >= p)
+
+    return colour_multiply(incoming, (colour){1.0, 1.0, 1.0});
     // return incoming;
 
 }
@@ -100,6 +111,10 @@ void render(u8* img, int width, int height, camera cam, object obj) {
 				f64 u = (f64)x / (width - 1);
 				f64 v = 1.0 - (f64)y / (height - 1);
 
+				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-8);
+				u += jitter.x;
+				v += jitter.y;
+
 				ray r = camera_get_ray(cam, u, v);
 				colour sample = colour_add(total_light, ray_color(r, obj, 1));
 				total_light = sample;
@@ -111,10 +126,14 @@ void render(u8* img, int width, int height, camera cam, object obj) {
 				total_light.b / N_SAMPLES,
 			};
 
+			colour_gamma(&pixel, 2.4);
+			// colour aces_pixel = colour_aces_tonemap(pixel);
+			colour_clip(&pixel, 1.0);
+
 			sz idx = (y * width + x) * 3;
-			img[idx + 0] = (u8)(255.999 * pixel.r);
-			img[idx + 1] = (u8)(255.999 * pixel.g);
-			img[idx + 2] = (u8)(255.999 * pixel.b);
+			img[idx + 0] = (u8)(255 * pixel.r);
+			img[idx + 1] = (u8)(255 * pixel.g);
+			img[idx + 2] = (u8)(255 * pixel.b);
 		}
 	}
 }
