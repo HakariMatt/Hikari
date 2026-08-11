@@ -3,14 +3,14 @@
 
 // all the settings
 
-#define CAMERA_LOOKAT 	{ 0.0, 0.0, 2 }
-#define CAMERA_POS	 	{ 5, -5, 5}
-#define CAMERA_FOV		50
+#define CAMERA_LOOKAT 	{ 0.0, 0.03, .55 }
+#define CAMERA_POS	 	{ -1.5, -1.5, 1.0}
+#define CAMERA_FOV		30
 
-#define WIDTH  			640		// dimensions of the image in pixels
-#define HEIGHT			480
+#define WIDTH  			960		// dimensions of the image in pixels
+#define HEIGHT			1440
 #define MAX_BOUNCES 	8		// how many times ray can bounce before dying off
-#define N_SAMPLES		64		// number of samples per pixel
+#define N_SAMPLES		256		// number of samples per pixel
 
 //advanced (dont touch)
 #define BVH_MAX_DEPTH   24

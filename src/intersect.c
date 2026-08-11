@@ -1,8 +1,43 @@
 #include "../include/intersect.h"
 
-hit_result hit_triangle(v3 v0, v3 v1, v3 v2, ray r) {
+static v3 interpolate_normal(mesh* m, tri f, f64 t, ray r) {
+	v3 p = ray_at(r, t);
+
+	v3 n0 = m->v_norms[(int)f.v_norms_idx.x];
+	v3 n1 = m->v_norms[(int)f.v_norms_idx.y];
+	v3 n2 = m->v_norms[(int)f.v_norms_idx.z];
+
+	v3 vx0 = m->verts[(int)f.verts_idx.x];
+	v3 vx1 = m->verts[(int)f.verts_idx.y];
+	v3 vx2 = m->verts[(int)f.verts_idx.z];
+
+	v3 v0 = v3_sub(vx1, vx0);
+	v3 v1 = v3_sub(vx2, vx0);
+	v3 v2 = v3_sub(p, vx0);
+
+	f64 d00 = v3_dot(v0, v0);
+	f64 d01 = v3_dot(v0, v1);
+	f64 d11 = v3_dot(v1, v1);
+	f64 d20 = v3_dot(v2, v0);
+	f64 d21 = v3_dot(v2, v1);
+
+	f64 denom = d00*d11 - d01*d01;
+	f64 beta = (d11*d20-d01*d21) / denom;
+	f64 gamma = (d00*d21-d01*d20) / denom;
+	f64 alpha = 1 - beta - gamma;
+
+	v3 n = v3_add(v3_scale(n0, alpha), v3_add(v3_scale(n1, beta), v3_scale(n2, gamma)));
+	return n;
+}
+
+hit_result hit_triangle(mesh* m, sz tri_id, ray r) {
 	hit_result miss = { .hit = 0 };
 	const f64 eps = 1e-8;
+
+	tri tri = m->tris[tri_id];
+	v3 v0 = m->verts[(sz)(tri.verts_idx.x)];
+	v3 v1 = m->verts[(sz)(tri.verts_idx.y)];
+	v3 v2 = m->verts[(sz)(tri.verts_idx.z)];
 
 	v3 e1 = v3_sub(v1, v0);
 	v3 e2 = v3_sub(v2, v0);
@@ -23,8 +58,10 @@ hit_result hit_triangle(v3 v0, v3 v1, v3 v2, ray r) {
 	f64 t = v3_dot(e2, qvec) * inv_det;
 	if (t < eps) return miss; // behind origin
 
-	v3 n = v3_norm(v3_cross(e1, e2));
-	if (det < 0) n = v3_scale(n, -1.0); // face toward the ray
+	v3 n;
+	if (m->nv_norms == 0) n = v3_norm(v3_cross(e1, e2));
+	else n = interpolate_normal(m, tri, t, r);
+	// if (det < 0) n = v3_scale(n, -1.0); // face toward the ray
 	return (hit_result){ t, n, 1 };
 }
 

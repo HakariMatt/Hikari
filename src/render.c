@@ -37,29 +37,29 @@ static f64 random_value(u32* state) {
 }
 
 v3 random_dir() {
-	return v3_norm((v3){
+	return /*v3_norm*/((v3){
 		.x = (random_value(&rng_state) * 2) - 1,
 		.y = (random_value(&rng_state) * 2) - 1,
 		.z = (random_value(&rng_state) * 2) - 1,
 	});
 }
 
-static v3 cosine_weighted_hemisphere(v3 normal) {
-    float u1 = random_value(&rng_state); // [0, 1)
-    float u2 = random_value(&rng_state);
-    float r = sqrtf(u1);
-    float theta = 2.0f * M_PI * u2;
+// static v3 cosine_weighted_hemisphere(v3 normal) {
+//     float u1 = random_value(&rng_state); // [0, 1)
+//     float u2 = random_value(&rng_state);
+//     float r = sqrtf(u1);
+//     float theta = 2.0f * M_PI * u2;
 
-    float x = r * cosf(theta);
-    float y = r * sinf(theta);
-    float z = sqrtf(fmaxf(0.0f, 1.0f - u1));
+//     float x = r * cosf(theta);
+//     float y = r * sinf(theta);
+//     float z = sqrtf(fmaxf(0.0f, 1.0f - u1));
 
-    v3 t, b;
-    v3 helper = (fabs(normal.x) > 0.9) ? (v3){0, 1, 0} : (v3){1, 0, 0};
-    t = v3_norm(v3_cross(helper, normal));
-    b = v3_cross(normal, t);
-    return v3_add(v3_scale(t, x), v3_add(v3_scale(b, y), v3_scale(normal, z)));
-}
+//     v3 t, b;
+//     v3 helper = (fabs(normal.x) > 0.9) ? (v3){0, 1, 0} : (v3){1, 0, 0};
+//     t = v3_norm(v3_cross(helper, normal));
+//     b = v3_cross(normal, t);
+//     return v3_add(v3_scale(t, x), v3_add(v3_scale(b, y), v3_scale(normal, z)));
+// }
 
 static v3 random_point_in_circle(u32* rngState)
 {
@@ -94,8 +94,8 @@ static colour ray_color(ray r, scene* sc, sz depth) {
 	if (!best_h.hit) return sky_colour(r);
 
 	// need better diffuse reflection function...
-	// v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
-	v3 bounce_dir = cosine_weighted_hemisphere(best_h.normal);
+	v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
+	// v3 bounce_dir = cosine_weighted_hemisphere(best_h.normal);
 	ray new_r = {v3_add(ray_at(r, best_h.t), v3_scale(best_h.normal, 0.0000001)), bounce_dir};
 
     colour incoming = ray_color(new_r, sc, depth+1);
