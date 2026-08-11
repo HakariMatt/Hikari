@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,45 +12,56 @@
 #include "../include/colour.h"
 #include "../include/render.h"
 
-u64 rng_state;
+u32 rng_state;
 
 static colour sky_colour(ray r) {
-	// v3 unit_dir = v3_norm(r.dir);
- //    f64 a = 0.5 * (unit_dir.z + 1.0);
- //    v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
- //    v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
- //    return (colour){t.x, t.y, t.z};
- 	return (colour) {1,1,1};
+	v3 unit_dir = v3_norm(r.dir);
+    f64 a = 0.5 * (unit_dir.z + 1.0);
+    v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
+    v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
+    return (colour){t.x, t.y, t.z};
+ 	// return (colour) {1,1,1};
 }
 
 // modified function from
 // https://github.com/SebLague/Ray-Tracing/blob/Episode01/Assets/Scripts/Shaders/RayTracing.shader
-static u64 next_random(u64* state) {
+static u32 next_random(u32* state) {
 	((*state)) = (*state) * 747796405 + 2891336453;
-	u64 result = (((*state) >> (((*state) >> 28) + 4)) ^ (*state)) * 277803737;
+	u32 result = (((*state) >> (((*state) >> 28) + 4)) ^ (*state)) * 277803737;
 	result = (result >> 22) ^ result;
 	return result;
 }
 
-static f64 random_value(u64* state) {
-	return next_random(state) / 4294967295.0; // 2^32 - 1
+static f64 random_value(u32* state) {
+	return next_random(state) * (1.0 / 4294967296.0);  // [0, 1)
 }
 
-static f64 random_value_normal_distribution(u64* state) {
-	f64 theta = 2 * 3.1415926 * random_value(state);
-	f64 rho = sqrt(-2 * log(random_value(state)));
-	return rho * cos(theta);
-}
-
-static v3 random_dir() {
+v3 random_dir() {
 	return v3_norm((v3){
-		.x = random_value(&rng_state),
-		.y = random_value(&rng_state),
-		.z = random_value(&rng_state),
+		.x = (random_value(&rng_state) * 2) - 1,
+		.y = (random_value(&rng_state) * 2) - 1,
+		.z = (random_value(&rng_state) * 2) - 1,
 	});
 }
 
-static v3 random_point_in_circle(u64* rngState)
+static v3 cosine_weighted_hemisphere(v3 normal) {
+    float u1 = random_value(&rng_state); // [0, 1)
+    float u2 = random_value(&rng_state);
+    float r = sqrtf(u1);
+    float theta = 2.0f * M_PI * u2;
+
+    float x = r * cosf(theta);
+    float y = r * sinf(theta);
+    float z = sqrtf(fmaxf(0.0f, 1.0f - u1));
+
+    v3 t, b;
+    v3 helper = (fabs(normal.x) > 0.9) ? (v3){0, 1, 0} : (v3){1, 0, 0};
+    t = v3_norm(v3_cross(helper, normal));
+    b = v3_cross(normal, t);
+    return v3_add(v3_scale(t, x), v3_add(v3_scale(b, y), v3_scale(normal, z)));
+}
+
+static v3 random_point_in_circle(u32* rngState)
 {
 	f64 angle = random_value(rngState) * 2 * M_PI;
 	v3 point_on_circle = {cos(angle), sin(angle), 0};
@@ -57,20 +69,10 @@ static v3 random_point_in_circle(u64* rngState)
 }
 
 
-
 static colour ray_color(ray r, scene* sc, sz depth) {
 	if (depth >= MAX_BOUNCES) {
 		return (colour){0,0,0};
 	}
-
-	// if (!hit_bbox(r, sc->objects[0].bbox)) {
- //        return sky_colour(r);
- //    }
-
-	// hit_result hr = bvh_hit(sc->objects[0].bvh, sc->objects[0].mesh, r, INFINITY);
-	// if (!hr.hit) {
- //    	return sky_colour(r);
-	// }
 
 	hit_result hr;
 	hit_result best_h = {.hit = 0};
@@ -91,10 +93,9 @@ static colour ray_color(ray r, scene* sc, sz depth) {
 
 	if (!best_h.hit) return sky_colour(r);
 
-	// v3 bounce_dir = v3_reflect(r.dir, hr.normal);
-
 	// need better diffuse reflection function...
-	v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
+	// v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
+	v3 bounce_dir = cosine_weighted_hemisphere(best_h.normal);
 	ray new_r = {v3_add(ray_at(r, best_h.t), v3_scale(best_h.normal, 0.0000001)), bounce_dir};
 
     colour incoming = ray_color(new_r, sc, depth+1);
@@ -109,8 +110,6 @@ static colour ray_color(ray r, scene* sc, sz depth) {
     };
 
     return colour_multiply(incoming, obj_colours[best_obj]);
-    // return incoming;
-
 }
 
 void render(u8* img, sz width, sz height, camera cam, scene* sc) {

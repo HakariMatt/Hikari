@@ -51,9 +51,13 @@ int main(void) {
 
     STOPWATCH(t0);
 
-   	scene_load_obj(&sc, "assets/models/Matomi.obj");
+   	scene_load_obj(&sc, "assets/models/simple_scene.obj");
    	// scene_load_obj(&sc, "assets/models/sphere.obj");
    	// scene_load_obj(&sc, "assets/models/scene.obj");
+
+    printf("object 1:\n");
+    printf(" - verts: %zu\n", sc.objects[0].mesh.nverts);
+    printf(" - tris:  %zu\n", sc.objects[0].mesh.ntris);
 
     STOPWATCH(t1);
 

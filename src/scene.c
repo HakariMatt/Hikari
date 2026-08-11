@@ -50,12 +50,10 @@ void scene_load_obj(scene* scene, char* filepath) {
 	sz tcap = 1024; sz tcount = 0;
 	tri* t = malloc(vcap*sizeof(tri));
 
-	sz current_line = 1;
+	// sz current_line = 1;
 
 	char buf[512];
 	while (fgets(buf, sizeof(buf), f)) {
-		sz index = 0;
-
 		if (buf[0] == 'v' && buf[1] == ' ') {
 			// scan vertex
 			v3 p = {0};
@@ -84,7 +82,6 @@ void scene_load_obj(scene* scene, char* filepath) {
 		}
 		else if (buf[0] == 'f' && buf[1] == ' ') {
 			// scan face (v_id/vt_id/vn_id)
-			v3 v, vt, vn;
 			u32 v_idx[32];
 			u32 vt_idx[32];
 			u32 vn_idx[32];
@@ -93,23 +90,23 @@ void scene_load_obj(scene* scene, char* filepath) {
 			while (*p && n < 32) {
 				while (*p == ' ') p++;
 				if (*p == '\0' || *p == '\n') break;
-				int v_id, vt_id, vn_id;
+				int v_id = -1, vt_id = -1, vn_id = -1;
 
-				// sscanf(p, "%d", &v_id);
-				// while (*p != '/' && *p != ' ' && *p != '\n') p++;
-				// if (*p == '/') {
-				// 	p++;
-				// 	if (*p != '/') {
-				// 		sscanf(p, "%d", &vt_id);
-				// 		while (*p != '/' && *p != ' ' && *p != '\n') p++;
-				// 	}
-				// 	if (*p == '/') {
-				// 		p++;
-				// 		sscanf(p, "%d", &vn_id);
-				// 	}
-				// }
+				sscanf(p, "%d", &v_id);
+				while (*p != '/' && *p != ' ' && *p != '\n') p++;
+				if (*p == '/') {
+					p++;
+					if (*p != '/') {
+						sscanf(p, "%d", &vt_id);
+						while (*p != '/' && *p != ' ' && *p != '\n') p++;
+					}
+					if (*p == '/') {
+						p++;
+						sscanf(p, "%d", &vn_id);
+					}
+				}
 
-				if (sscanf(p, "%d/%d/%d", &v_id, &vt_id, &vn_id) != 3) break;
+				// if (sscanf(p, "%d/%d/%d", &v_id, &vt_id, &vn_id) != 3) break;
 				v_idx[n] = (u32)(v_id - 1); // obj starts with index 1 for whatever reason...
 				vt_idx[n] = (u32)(vt_id - 1);
 				vn_idx[n] = (u32)(vn_id - 1);
@@ -131,7 +128,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 				// 	(v3){ vn_idx[0], vn_idx[1], vn_idx[2] }
 				// };
 			}
-			current_line++;
+			// current_line++;
 		}
 	}
 	object o = {
