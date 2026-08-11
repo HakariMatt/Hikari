@@ -10,7 +10,11 @@ static boundbox bvh_compute_bbox(mesh m, sz* tri_idxs, sz count) {
 
 	for (sz i = 0; i < count; ++i) {
 		tri t = m.tris[tri_idxs[i]];
-		v3 verts[3] = { m.verts[t.a], m.verts[t.b], m.verts[t.c] };
+		v3 verts[3] = {
+			m.verts[(int)(t.verts_idx.x)],
+			m.verts[(int)(t.verts_idx.y)],
+			m.verts[(int)(t.verts_idx.z)]
+		};
 		for (int j = 0; j < 3; ++j) {
 			v3 p = verts[j];
 			max_x = fmax(max_x, p.x); min_x = fmin(min_x, p.x);
@@ -23,7 +27,9 @@ static boundbox bvh_compute_bbox(mesh m, sz* tri_idxs, sz count) {
 
 static v3 bvh_centroid(mesh m, sz tri_idx) {
 	tri t = m.tris[tri_idx];
-	v3 a = m.verts[t.a], b = m.verts[t.b], c = m.verts[t.c];
+	v3 a = m.verts[(int)(t.verts_idx.x)];
+	v3 b = m.verts[(int)(t.verts_idx.y)];
+	v3 c = m.verts[(int)(t.verts_idx.z)];
 	return (v3){ (a.x+b.x+c.x)/3.0, (a.y+b.y+c.y)/3.0, (a.z+b.z+c.z)/3.0 };
 }
 
@@ -128,7 +134,12 @@ hit_result bvh_hit(bvh_node* node, mesh m, ray r, f64 closest) {
 		hit_result best = miss;
 		for (sz i = 0; i < node->tri_count; ++i) {
 			tri t = m.tris[node->tri_idxs[i]];
-			hit_result hr = hit_triangle(m.verts[t.a], m.verts[t.b], m.verts[t.c], r);
+			hit_result hr = hit_triangle(
+				m.verts[(int)(t.verts_idx.x)],
+				m.verts[(int)(t.verts_idx.y)],
+				m.verts[(int)(t.verts_idx.z)],
+				r
+			);
 			if (hr.hit && hr.t < closest) {
 				closest = hr.t;
 				best = hr;

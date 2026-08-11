@@ -19,8 +19,6 @@ typedef size_t    sz;
 typedef struct { f64 x, y, z; } v3;
 typedef struct { v3 origin, dir; } ray;
 
-typedef struct { u32 a, b, c; } tri;
-
 typedef struct {
 	v3 origin, lower_left, horizontal, vertical;
 	v3 u, v, w;
@@ -28,8 +26,18 @@ typedef struct {
 } camera;
 
 typedef struct {
+	v3 verts_idx;
+	v3 t_coords_idx;
+	v3 v_norms_idx;
+} tri;
+
+typedef struct {
 	v3*  verts;
 	sz   nverts;
+	v3*  t_coords;
+	sz   nt_coords;
+	v3*  v_norms;
+	sz   nv_norms;
 	tri* tris;
 	sz   ntris;
 } mesh;
@@ -51,6 +59,12 @@ typedef struct {
 	boundbox bbox;
 	bvh_node* bvh;
 } object;
+
+typedef struct {
+	object* objects;
+	sz obj_count;
+	sz obj_cap;
+} scene;
 
 typedef struct { f64 t; v3 normal; int hit; } hit_result;
 

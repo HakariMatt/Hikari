@@ -3,6 +3,6 @@
 
 #include "types.h"
 
-void render(u8* img, int width, int height, camera cam, object obj);
+void render(u8* img, sz width, sz height, camera cam, scene* sc);
 
 #endif

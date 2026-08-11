@@ -10,9 +10,11 @@
 #include "../include/display.h"
 #include "../include/types.h"
 #include "../include/camera.h"
-#include "../include/mesh.h"
+#include "../include/scene.h"
 #include "../include/bvh.h"
 #include "../include/render.h"
+
+#define STOPWATCH(x) clock_gettime(CLOCK_MONOTONIC, &(x))
 
 // #define SECONDS(t1, t2) (((double) (t2 - t1)) / CLOCKS_PER_SEC)
 
@@ -24,15 +26,15 @@ static double seconds_since(struct timespec start, struct timespec end) {
 
 typedef struct {
     u8* img;
-    int width, height;
+    sz width, height;
     camera cam;
-    object obj;
+    scene scene;
     volatile int done;
 } render_args;
 
 static void* render_thread_fn(void* arg) {
     render_args* a = (render_args*)arg;
-    render(a->img, a->width, a->height, a->cam, a->obj);
+    render(a->img, a->width, a->height, a->cam, &a->scene);
     a->done = 1;
     return NULL;
 }
@@ -40,31 +42,29 @@ static void* render_thread_fn(void* arg) {
 int main(void) {
 	struct timespec t0, t1, t2, t3, t4;
 
-    // camera cam = camera_make(
-    //     (v3){-1.5,1.5,1.5}, (v3){0,.56,0}, (v3){0,1,0},
-    //     30.0, (f64)WIDTH/HEIGHT, 0.0, 1.0
-    // );
-    // camera cam = camera_make(
-    //     (v3){0,-2.46,0}, (v3){0,0,0}, (v3){0,0,1},
-    //     90.0, (f64)WIDTH/HEIGHT, 0.0, 1.0
-    // );
+	scene sc = {0};
+
     camera cam = camera_make(
         (v3)CAMERA_POS, (v3)CAMERA_LOOKAT, (v3){0,0,1},
         CAMERA_FOV, (f64)WIDTH/HEIGHT, 0.0, 1.0
     );
 
-    clock_gettime(CLOCK_MONOTONIC, &t0);
-    object obj = mesh_load_obj("Matomi.obj");
+    STOPWATCH(t0);
 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
+   	scene_load_obj(&sc, "Matomi.obj");
 
-    obj.bvh = bvh_build_root(obj.mesh);
-    clock_gettime(CLOCK_MONOTONIC, &t2);
+    STOPWATCH(t1);
+
+    for (sz i = 0; i < sc.obj_count; ++i) {
+    	sc.objects[i].bvh = bvh_build_root(sc.objects[i].mesh);
+    }
+
+    STOPWATCH(t2);
 
     u8* img = malloc(IMG_SIZE);
     memset(img, 0, IMG_SIZE);
 
-    render_args rargs = { img, WIDTH, HEIGHT, cam, obj, 0 };
+    render_args rargs = { img, WIDTH, HEIGHT, cam, sc, 0 };
     pthread_t render_thread;
     pthread_create(&render_thread, NULL, render_thread_fn, &rargs);
 
@@ -72,17 +72,16 @@ int main(void) {
 
     pthread_join(render_thread, NULL);
 
-    clock_gettime(CLOCK_MONOTONIC, &t3);
+    STOPWATCH(t3);
 
     FILE* f = fopen("output.ppm", "wb");
     fprintf(f, "P6\n%d %d\n255\n", WIDTH, HEIGHT);
     fwrite(img, 1, IMG_SIZE, f);
     fclose(f);
 
-    clock_gettime(CLOCK_MONOTONIC, &t4);
+    STOPWATCH(t4);
 
-    mesh_free(obj.mesh);
-    bvh_free(obj.bvh);
+    scene_free(&sc);
     free(img);
 
     // fprintf(stderr, "\nDone\n");
