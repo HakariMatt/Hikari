@@ -51,7 +51,9 @@ int main(void) {
 
     STOPWATCH(t0);
 
-   	scene_load_obj(&sc, "Matomi.obj");
+   	scene_load_obj(&sc, "assets/models/Matomi.obj");
+   	// scene_load_obj(&sc, "assets/models/sphere.obj");
+   	// scene_load_obj(&sc, "assets/models/scene.obj");
 
     STOPWATCH(t1);
 

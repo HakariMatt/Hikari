@@ -36,7 +36,10 @@ void scene_load_obj(scene* scene, char* filepath) {
 	if (!scene) return;
 
 	FILE* f = fopen(filepath, "r");
-	if (!f) return;
+	if (!f) {
+		fprintf(stderr, "File `%s` couldn't be opened\n", filepath);
+		return;
+	}
 
 	sz vcap = 1024; sz vcount = 0;
 	v3* v = malloc(vcap*sizeof(v3));
@@ -54,7 +57,6 @@ void scene_load_obj(scene* scene, char* filepath) {
 		sz index = 0;
 
 		if (buf[0] == 'v' && buf[1] == ' ') {
-			printf("v ");
 			// scan vertex
 			v3 p = {0};
 			if (sscanf(buf + 2, "%lf %lf %lf", &p.x, &p.z, &p.y) == 3) {
@@ -64,7 +66,6 @@ void scene_load_obj(scene* scene, char* filepath) {
 			}
 		}
 		else if (buf[0] == 'v' && buf[1] == 't' && buf[2] == ' ') {
-			printf("vt ");
 			// scan texture coordinate
 			v3 p = {0};
 			if (sscanf(buf + 3, "%lf %lf", &p.x, &p.y) == 2) {
@@ -73,7 +74,6 @@ void scene_load_obj(scene* scene, char* filepath) {
 			}
 		}
 		else if (buf[0] == 'v' && buf[1] == 'n' && buf[2] == ' ') {
-			printf("vn ");
 			// scan vertex normal
 			v3 p = {0};
 			if (sscanf(buf + 3, "%lf %lf %lf", &p.x, &p.z, &p.y) == 3) {

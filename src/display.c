@@ -3,6 +3,7 @@
 
 void display_run(u8* img, int width, int height, volatile int* render_done) {
 	SetConfigFlags(FLAG_WINDOW_HIGHDPI);
+	SetTraceLogLevel(LOG_NONE); // shut up bro
     InitWindow(width, height, "render preview");
     SetTargetFPS(30);
 

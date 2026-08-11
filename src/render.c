@@ -14,11 +14,12 @@
 u64 rng_state;
 
 static colour sky_colour(ray r) {
-	v3 unit_dir = v3_norm(r.dir);
-    f64 a = 0.5 * (unit_dir.z + 1.0);
-    v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
-    v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
-    return (colour){t.x, t.y, t.z};
+	// v3 unit_dir = v3_norm(r.dir);
+ //    f64 a = 0.5 * (unit_dir.z + 1.0);
+ //    v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
+ //    v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
+ //    return (colour){t.x, t.y, t.z};
+ 	return (colour) {1,1,1};
 }
 
 // modified function from
@@ -55,32 +56,59 @@ static v3 random_point_in_circle(u64* rngState)
 	return v3_scale(point_on_circle, sqrt(random_value(rngState)));
 }
 
+
+
 static colour ray_color(ray r, scene* sc, sz depth) {
 	if (depth >= MAX_BOUNCES) {
 		return (colour){0,0,0};
 	}
 
-	if (!hit_bbox(r, sc->objects[0].bbox)) {
-        return sky_colour(r);
-    }
+	// if (!hit_bbox(r, sc->objects[0].bbox)) {
+ //        return sky_colour(r);
+ //    }
 
-	hit_result hr = bvh_hit(sc->objects[0].bvh, sc->objects[0].mesh, r, INFINITY);
-	if (!hr.hit) {
-    	return sky_colour(r);
+	// hit_result hr = bvh_hit(sc->objects[0].bvh, sc->objects[0].mesh, r, INFINITY);
+	// if (!hr.hit) {
+ //    	return sky_colour(r);
+	// }
+
+	hit_result hr;
+	hit_result best_h = {.hit = 0};
+	sz best_obj = -1;
+	f64 closest = INFINITY;
+
+	for (sz i = 0; i < sc->obj_count; ++i) {
+		if (!hit_bbox(r, sc->objects[i].bbox)) continue;
+
+		hr = bvh_hit(sc->objects[i].bvh, sc->objects[i].mesh, r, closest);
+
+		if (hr.hit && hr.t < closest) {
+			closest = hr.t;
+			best_h = hr;
+			best_obj = i;
+		}
 	}
+
+	if (!best_h.hit) return sky_colour(r);
 
 	// v3 bounce_dir = v3_reflect(r.dir, hr.normal);
 
 	// need better diffuse reflection function...
-	v3 bounce_dir = v3_norm(v3_add(hr.normal, random_dir()));
-	ray new_r = {v3_add(ray_at(r, hr.t), v3_scale(hr.normal, 0.0000001)), bounce_dir};
+	v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
+	ray new_r = {v3_add(ray_at(r, best_h.t), v3_scale(best_h.normal, 0.0000001)), bounce_dir};
 
     colour incoming = ray_color(new_r, sc, depth+1);
 
     // f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
     // if (random_value(&rng_state) >= p)
+    colour obj_colours[] = {
+   		colour_srgb_i(0xff,0x79,0x79),
+   		colour_srgb_i(0xff,0xbe,0x76),
+   		colour_srgb_i(0xf6,0xe5,0x8d),
+   		colour_srgb_i(0xba,0xdc,0x58),
+    };
 
-    return colour_multiply(incoming, (colour){1.0, 1.0, 1.0});
+    return colour_multiply(incoming, obj_colours[best_obj]);
     // return incoming;
 
 }

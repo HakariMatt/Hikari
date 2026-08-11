@@ -1,12 +1,5 @@
 .DS_Store
 output.ppm
-output.png
-Matomi.mtl
-Matomi.obj
-sphere.obj
-scene.obj
-scene.mtl
-ray
-gun.obj
+assets/models/
 hikari
 src/mesh.c_tmp
