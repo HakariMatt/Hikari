@@ -37,29 +37,12 @@ static f64 random_value(u32* state) {
 }
 
 v3 random_dir() {
-	return /*v3_norm*/((v3){
+	return (v3){
 		.x = (random_value(&rng_state) * 2) - 1,
 		.y = (random_value(&rng_state) * 2) - 1,
 		.z = (random_value(&rng_state) * 2) - 1,
-	});
+	};
 }
-
-// static v3 cosine_weighted_hemisphere(v3 normal) {
-//     float u1 = random_value(&rng_state); // [0, 1)
-//     float u2 = random_value(&rng_state);
-//     float r = sqrtf(u1);
-//     float theta = 2.0f * M_PI * u2;
-
-//     float x = r * cosf(theta);
-//     float y = r * sinf(theta);
-//     float z = sqrtf(fmaxf(0.0f, 1.0f - u1));
-
-//     v3 t, b;
-//     v3 helper = (fabs(normal.x) > 0.9) ? (v3){0, 1, 0} : (v3){1, 0, 0};
-//     t = v3_norm(v3_cross(helper, normal));
-//     b = v3_cross(normal, t);
-//     return v3_add(v3_scale(t, x), v3_add(v3_scale(b, y), v3_scale(normal, z)));
-// }
 
 static v3 random_point_in_circle(u32* rngState)
 {
@@ -67,7 +50,6 @@ static v3 random_point_in_circle(u32* rngState)
 	v3 point_on_circle = {cos(angle), sin(angle), 0};
 	return v3_scale(point_on_circle, sqrt(random_value(rngState)));
 }
-
 
 static colour ray_color(ray r, scene* sc, sz depth) {
 	if (depth >= MAX_BOUNCES) {
@@ -93,15 +75,18 @@ static colour ray_color(ray r, scene* sc, sz depth) {
 
 	if (!best_h.hit) return sky_colour(r);
 
-	// need better diffuse reflection function...
+	f64 roughness = 0.2;
+
 	v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
-	// v3 bounce_dir = cosine_weighted_hemisphere(best_h.normal);
+	// v3 bounce_dir = v3_norm( v3_add( v3_add( best_h.normal, random_dir() ), v3_scale( v3_reflect( r.dir, best_h.normal ), 1-roughness )));
+
 	ray new_r = {v3_add(ray_at(r, best_h.t), v3_scale(best_h.normal, 0.0000001)), bounce_dir};
 
     colour incoming = ray_color(new_r, sc, depth+1);
 
+    // TODO: implement random early exit somehow
     // f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
-    // if (random_value(&rng_state) >= p)
+    // if (random_value(&rng_state) >= p) stop tracing this path
     colour obj_colours[] = {
    		colour_srgb_i(0xff,0x79,0x79),
    		colour_srgb_i(0xff,0xbe,0x76),
@@ -112,38 +97,81 @@ static colour ray_color(ray r, scene* sc, sz depth) {
     return colour_multiply(incoming, obj_colours[best_obj]);
 }
 
-void render(u8* img, sz width, sz height, camera cam, scene* sc) {
-	#pragma omp parallel for schedule(dynamic)
-	for (sz y = 0; y < height; ++y) {
-		for (sz x = 0; x < width; ++x) {
-			colour total_light = {0};
+// void render(f32* img, sz width, sz height, camera cam, scene* sc) {
+// 	#pragma omp parallel for schedule(dynamic)
+// 	for (sz y = 0; y < height; ++y) {
+// 		for (sz x = 0; x < width; ++x) {
+// 			colour total_light = {0};
 
-			for (sz s = 0; s < N_SAMPLES; ++s) {
+// 			for (sz s = 0; s < N_SAMPLES; ++s) {
+// 				f64 u = (f64)x / (width - 1);
+// 				f64 v = 1.0 - (f64)y / (height - 1);
+
+// 				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-8);
+// 				u += jitter.x;
+// 				v += jitter.y;
+
+// 				ray r = camera_get_ray(cam, u, v);
+// 				colour sample = colour_add(total_light, ray_color(r, sc, 1));
+// 				total_light = sample;
+// 			}
+
+// 			colour pixel = {
+// 				total_light.r / N_SAMPLES,
+// 				total_light.g / N_SAMPLES,
+// 				total_light.b / N_SAMPLES,
+// 			};
+
+// 			colour_gamma(&pixel, 2.4);
+// 			colour_clip(&pixel, 1.0);
+
+// 			sz idx = (y * width + x) * 3;
+// 			img[idx + 0] = (u8)(255 * pixel.r);
+// 			img[idx + 1] = (u8)(255 * pixel.g);
+// 			img[idx + 2] = (u8)(255 * pixel.b);
+// 		}
+// 	}
+// }
+
+void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz* samples_done) {
+	for (sz s = 0; s < N_SAMPLES; ++s) {
+		#pragma omp parallel for schedule(dynamic)
+		for (sz y = 0; y < height; ++y) {
+			for (sz x = 0; x < width; ++x) {
+				sz idx = (y * width + x) * 3;
+				colour old_px = {
+					img[idx + 0],
+					img[idx + 1],
+					img[idx + 2]
+				};
+
+				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-3);
+
+				img[idx + 0] = 1.0;
+				img[idx + 1] = 0.351;
+				img[idx + 2] = 0.0;
+
 				f64 u = (f64)x / (width - 1);
 				f64 v = 1.0 - (f64)y / (height - 1);
 
-				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-8);
 				u += jitter.x;
 				v += jitter.y;
+
+				colour total_light = {0};
 
 				ray r = camera_get_ray(cam, u, v);
 				colour sample = colour_add(total_light, ray_color(r, sc, 1));
 				total_light = sample;
+
+				colour_gamma(&total_light, 2.4);
+				colour_clip(&total_light, 1.0);
+
+				colour pixel = colour_add(old_px, colour_divide(colour_sub(total_light, old_px), (colour){s+1,s+1,s+1}));
+				img[idx + 0] = pixel.r;
+				img[idx + 1] = pixel.g;
+				img[idx + 2] = pixel.b;
 			}
-
-			colour pixel = {
-				total_light.r / N_SAMPLES,
-				total_light.g / N_SAMPLES,
-				total_light.b / N_SAMPLES,
-			};
-
-			colour_gamma(&pixel, 2.4);
-			colour_clip(&pixel, 1.0);
-
-			sz idx = (y * width + x) * 3;
-			img[idx + 0] = (u8)(255 * pixel.r);
-			img[idx + 1] = (u8)(255 * pixel.g);
-			img[idx + 2] = (u8)(255 * pixel.b);
 		}
+		*samples_done = s+1;
 	}
 }

@@ -16,6 +16,18 @@ static inline colour colour_add(colour a, colour b) {
 	return (colour) { a.r+b.r, a.g+b.g, a.b+b.b };
 }
 
+static inline colour colour_sub(colour a, colour b) {
+	return (colour) { a.r-b.r, a.g-b.g, a.b-b.b };
+}
+
+static inline colour colour_divide(colour a, colour b) {
+	return (colour) { a.r/b.r, a.g/b.g, a.b/b.b };
+}
+
+static inline colour colour_scale(colour a, f64 b) {
+	return (colour) { a.r*b, a.g*b, a.b*b };
+}
+
 static inline void colour_gamma(colour* a, f64 gamma) {
 	f64 inv_gamma = 1.0 / gamma;
 	a->r = pow(a->r, inv_gamma);

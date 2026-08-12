@@ -3,6 +3,7 @@
 
 #include "types.h"
 
-void render(u8* img, sz width, sz height, camera cam, scene* sc);
+void render(f32* img, sz width, sz height, camera cam, scene* sc);
+void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz* samples_done);
 
 #endif

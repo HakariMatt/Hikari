@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -25,16 +26,17 @@ static double seconds_since(struct timespec start, struct timespec end) {
 #define IMG_SIZE WIDTH*HEIGHT*3
 
 typedef struct {
-    u8* img;
+    f32* img;
     sz width, height;
     camera cam;
     scene scene;
+    sz samples_rendered;
     volatile int done;
 } render_args;
 
 static void* render_thread_fn(void* arg) {
     render_args* a = (render_args*)arg;
-    render(a->img, a->width, a->height, a->cam, &a->scene);
+    render_progressive(a->img, a->width, a->height, a->cam, &a->scene, &a->samples_rendered);
     a->done = 1;
     return NULL;
 }
@@ -51,7 +53,7 @@ int main(void) {
 
     STOPWATCH(t0);
 
-   	scene_load_obj(&sc, "assets/models/Matomi.obj");
+   	scene_load_obj(&sc, "assets/models/Hikari.obj");
    	// scene_load_obj(&sc, "assets/models/sphere.obj");
    	// scene_load_obj(&sc, "assets/models/scene.obj");
 
@@ -67,18 +69,24 @@ int main(void) {
 
     STOPWATCH(t2);
 
-    u8* img = malloc(IMG_SIZE);
+    f32* img = malloc(IMG_SIZE*sizeof(f32));
     memset(img, 0, IMG_SIZE);
 
-    render_args rargs = { img, WIDTH, HEIGHT, cam, sc, 0 };
+    render_args rargs = { img, WIDTH, HEIGHT, cam, sc, 0, 0 };
     pthread_t render_thread;
     pthread_create(&render_thread, NULL, render_thread_fn, &rargs);
 
-    display_run(img, WIDTH, HEIGHT, &rargs.done);
+    display_run(img, WIDTH, HEIGHT, &rargs.done, &rargs.samples_rendered);
 
     pthread_join(render_thread, NULL);
 
     STOPWATCH(t3);
+
+
+	u8* outimg = malloc(IMG_SIZE);
+	for (sz i = 0; i < IMG_SIZE; ++i) {
+		outimg[i] = (u8)fmax(fmin(img[i] * 255.0, 255.0), 0.0);
+	}
 
     FILE* f = fopen("output.ppm", "wb");
     fprintf(f, "P6\n%d %d\n255\n", WIDTH, HEIGHT);
