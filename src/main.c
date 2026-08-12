@@ -82,7 +82,6 @@ int main(void) {
 
     STOPWATCH(t3);
 
-
 	u8* outimg = malloc(IMG_SIZE);
 	for (sz i = 0; i < IMG_SIZE; ++i) {
 		outimg[i] = (u8)fmax(fmin(img[i] * 255.0, 255.0), 0.0);
@@ -90,7 +89,7 @@ int main(void) {
 
     FILE* f = fopen("output.ppm", "wb");
     fprintf(f, "P6\n%d %d\n255\n", WIDTH, HEIGHT);
-    fwrite(img, 1, IMG_SIZE, f);
+    fwrite(outimg, 1, IMG_SIZE, f);
     fclose(f);
 
     STOPWATCH(t4);

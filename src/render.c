@@ -137,6 +137,7 @@ void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz
 	for (sz s = 0; s < N_SAMPLES; ++s) {
 		#pragma omp parallel for schedule(dynamic)
 		for (sz y = 0; y < height; ++y) {
+
 			for (sz x = 0; x < width; ++x) {
 				sz idx = (y * width + x) * 3;
 				colour old_px = {
@@ -147,9 +148,9 @@ void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz
 
 				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-3);
 
-				img[idx + 0] = 1.0;
-				img[idx + 1] = 0.351;
-				img[idx + 2] = 0.0;
+				img[idx + 0] = 0.0;
+				img[idx + 1] = 0.0;
+				img[idx + 2] = 1.0;
 
 				f64 u = (f64)x / (width - 1);
 				f64 v = 1.0 - (f64)y / (height - 1);
