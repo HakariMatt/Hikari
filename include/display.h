@@ -3,6 +3,6 @@
 
 #include "types.h"
 
-void display_run(f32* img, int width, int height, volatile int* render_done, sz* samples_done);
+void display_run(render_args* args);
 
 #endif

@@ -133,7 +133,6 @@ hit_result bvh_hit(bvh_node* node, mesh m, ray r, f64 closest) {
 	if (!node->childA && !node->childB) { // leaf
 		hit_result best = miss;
 		for (sz i = 0; i < node->tri_count; ++i) {
-			tri t = m.tris[node->tri_idxs[i]];
 			hit_result hr = hit_triangle(
 				&m, node->tri_idxs[i], r
 			);

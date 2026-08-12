@@ -1,5 +1,6 @@
 #include "../include/scene.h"
 #include "../include/bvh.h"
+#include "../include/log.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,7 +38,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 
 	FILE* f = fopen(filepath, "r");
 	if (!f) {
-		fprintf(stderr, "File `%s` couldn't be opened\n", filepath);
+		print(ERROR, "File `%s` couldn't be opened", filepath);
 		return;
 	}
 
@@ -138,6 +139,10 @@ void scene_load_obj(scene* scene, char* filepath) {
 	};
 
 	scene_object_push(scene, o);
+
+	print(INFO, "Object successfully loaded");
+	print(INFO, "    verts: %zu", vcount);
+	print(INFO, "    tris:  %zu", tcount);
 }
 
 void mesh_free(mesh m) {

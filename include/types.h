@@ -68,4 +68,20 @@ typedef struct {
 
 typedef struct { f64 t; v3 normal; int hit; } hit_result;
 
+typedef struct {
+	volatile int done;
+	sz samples_done;
+
+	int should_stop;
+} render_state;
+
+typedef struct {
+    f32* img;
+    sz width, height;
+    camera cam;
+    scene scene;
+    render_state* state;
+} render_args;
+
+
 #endif

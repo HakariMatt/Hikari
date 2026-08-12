@@ -11,6 +11,7 @@
 #include "../include/bvh.h"
 #include "../include/colour.h"
 #include "../include/render.h"
+#include "../include/log.h"
 
 u32 rng_state;
 
@@ -75,7 +76,7 @@ static colour ray_color(ray r, scene* sc, sz depth) {
 
 	if (!best_h.hit) return sky_colour(r);
 
-	f64 roughness = 0.2;
+	// f64 roughness = 0.2;
 
 	v3 bounce_dir = v3_norm(v3_add(best_h.normal, random_dir()));
 	// v3 bounce_dir = v3_norm( v3_add( v3_add( best_h.normal, random_dir() ), v3_scale( v3_reflect( r.dir, best_h.normal ), 1-roughness )));
@@ -133,8 +134,20 @@ static colour ray_color(ray r, scene* sc, sz depth) {
 // 	}
 // }
 
-void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz* samples_done) {
+void render_progressive(render_args* args) {
+	sz width = args->width;
+	sz height = args->height;
+	f32* img = args->img;
+	camera cam = args->cam;
+	scene* sc = &args->scene;
+
+	print(INFO, "Width:   %zu", width);
+	print(INFO, "Height:  %zu", height);
+	print(INFO, "Samples: %zu", N_SAMPLES);
+	print(INFO, "Bounces: %zu", MAX_BOUNCES);
+
 	for (sz s = 0; s < N_SAMPLES; ++s) {
+		if (args->state->should_stop) break;
 		#pragma omp parallel for schedule(dynamic)
 		for (sz y = 0; y < height; ++y) {
 
@@ -149,8 +162,8 @@ void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz
 				v3 jitter = v3_scale(random_point_in_circle(&rng_state), 1e-3);
 
 				img[idx + 0] = 0.0;
-				img[idx + 1] = 0.0;
-				img[idx + 2] = 1.0;
+				img[idx + 1] = 1.0;
+				img[idx + 2] = 0.0;
 
 				f64 u = (f64)x / (width - 1);
 				f64 v = 1.0 - (f64)y / (height - 1);
@@ -173,6 +186,6 @@ void render_progressive(f32* img, sz width, sz height, camera cam, scene* sc, sz
 				img[idx + 2] = pixel.b;
 			}
 		}
-		*samples_done = s+1;
+		args->state->samples_done = s+1;
 	}
 }
