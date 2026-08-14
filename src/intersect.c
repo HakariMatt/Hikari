@@ -1,4 +1,5 @@
 #include "../include/intersect.h"
+#include "../include/v3.h"
 
 static v3 interpolate_normal(mesh* m, tri f, f64 t, ray r) {
 	v3 p = ray_at(r, t);
@@ -58,11 +59,17 @@ hit_result hit_triangle(mesh* m, sz tri_id, ray r) {
 	f64 t = v3_dot(e2, qvec) * inv_det;
 	if (t < eps) return miss; // behind origin
 
-	v3 n;
-	if (m->nv_norms == 0) n = v3_norm(v3_cross(e1, e2));
-	else n = interpolate_normal(m, tri, t, r);
+	v3 true_normal = v3_norm(v3_cross(e1, e2));;
+	v3 normal;
+	if (m->nv_norms == 0) normal = true_normal;
+	else normal = interpolate_normal(m, tri, t, r);
 	// if (det < 0) n = v3_scale(n, -1.0); // face toward the ray
-	return (hit_result){ t, n, 1 };
+	return (hit_result){
+		.t = t,
+		.normal = normal,
+		.true_normal = true_normal,
+		.hit = 1
+	};
 }
 
 int hit_bbox(ray r, boundbox b) {

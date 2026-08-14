@@ -1,5 +1,8 @@
 .DS_Store
 output.ppm
+output.png
 assets/models/
 hikari
 src/mesh.c_tmp
+vec.py
+__pycache__/

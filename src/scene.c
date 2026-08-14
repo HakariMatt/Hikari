@@ -49,7 +49,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 	sz vncap = 1024; sz vncount = 0;
 	v3* vn = malloc(vncap*sizeof(v3));
 	sz tcap = 1024; sz tcount = 0;
-	tri* t = malloc(vcap*sizeof(tri));
+	tri* t = malloc(tcap*sizeof(tri));
 
 	// sz current_line = 1;
 
@@ -120,14 +120,9 @@ void scene_load_obj(scene* scene, char* filepath) {
 				t[tcount++] = (tri){
 					(v3){  v_idx[0],  v_idx[i],  v_idx[i+1] },
 					(v3){ vt_idx[0], vt_idx[i], vt_idx[i+1] },
-					(v3){ vn_idx[0], vn_idx[i], vn_idx[i+1] }
+					(v3){ vn_idx[0], vn_idx[i], vn_idx[i+1] },
+					0 // material index
 				};
-				// }
-				// t[tcount++] = (tri){
-				// 	(v3){  v_idx[0],  v_idx[1],  v_idx[2] },
-				// 	(v3){ vt_idx[0], vt_idx[1], vt_idx[2] },
-				// 	(v3){ vn_idx[0], vn_idx[1], vn_idx[2] }
-				// };
 			}
 			// current_line++;
 		}

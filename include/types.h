@@ -29,6 +29,7 @@ typedef struct {
 	v3 verts_idx;
 	v3 t_coords_idx;
 	v3 v_norms_idx;
+	sz mat_id;
 } tri;
 
 typedef struct {
@@ -60,28 +61,7 @@ typedef struct {
 	bvh_node* bvh;
 } object;
 
-typedef struct {
-	object* objects;
-	sz obj_count;
-	sz obj_cap;
-} scene;
-
-typedef struct { f64 t; v3 normal; int hit; } hit_result;
-
-typedef struct {
-	volatile int done;
-	sz samples_done;
-
-	int should_stop;
-} render_state;
-
-typedef struct {
-    f32* img;
-    sz width, height;
-    camera cam;
-    scene scene;
-    render_state* state;
-} render_args;
+typedef struct { f64 t; v3 normal; v3 true_normal; int hit; sz mat_id; } hit_result;
 
 
 #endif

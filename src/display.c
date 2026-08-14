@@ -11,8 +11,8 @@
 void display_run(render_args* args) {
 	SetConfigFlags(FLAG_WINDOW_HIGHDPI);
 	SetTraceLogLevel(LOG_NONE); // shut up bro
-    InitWindow(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, "render preview");
-    SetTargetFPS(30);
+    InitWindow(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT+50, "render preview");
+    SetTargetFPS(5);
 
     f32 tex_scale = fmin(PREVIEW_MAX_WIDTH / (f32)args->width, PREVIEW_MAX_HEIGHT / (f32)args->height);
 
@@ -38,9 +38,15 @@ void display_run(render_args* args) {
 		}
 
 		BeginDrawing();
-		ClearBackground(BLACK);
-		DrawTextureEx(tex, (Vector2){(PREVIEW_MAX_WIDTH-(args->width*tex_scale))/2.0, (PREVIEW_MAX_HEIGHT-(args->height*tex_scale))/2.0}, 0, tex_scale, WHITE);
-		DrawText(args->state->done ? "done" : s, 10, 10, 20, WHITE);
+
+		int progress_width = ((f32)args->state->samples_done / N_SAMPLES) * (PREVIEW_MAX_WIDTH - 16);
+		DrawRectangle(6, 6, PREVIEW_MAX_WIDTH-12, 28, BLACK);
+		DrawRectangle(8, 8, progress_width, 24, WHITE);
+		DrawText(args->state->done ? "done" : s, 10, 10, 20, GRAY);
+
+		ClearBackground(GRAY);
+		DrawTextureEx(tex, (Vector2){(PREVIEW_MAX_WIDTH-(args->width*tex_scale))/2.0, ((PREVIEW_MAX_HEIGHT-(args->height*tex_scale))/2.0) + 45}, 0, tex_scale, WHITE);
+
 		EndDrawing();
 	}
 	if (!args->state->done) {

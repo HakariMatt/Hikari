@@ -2,7 +2,6 @@
 #define _INTERSECT_H
 
 #include "types.h"
-#include "v3.h"
 
 hit_result hit_triangle(mesh* m, sz tri_id, ray r);
 
