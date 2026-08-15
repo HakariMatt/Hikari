@@ -68,7 +68,8 @@ hit_result hit_triangle(mesh* m, sz tri_id, ray r) {
 		.t = t,
 		.normal = normal,
 		.true_normal = true_normal,
-		.hit = 1
+		.hit = 1,
+		.mat_id = tri.mat_id
 	};
 }
 

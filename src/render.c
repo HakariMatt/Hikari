@@ -18,10 +18,10 @@
 static colour sky_colour(ray r) {
 	v3 unit_dir = v3_norm(r.dir);
     f64 a = 0.5 * (unit_dir.z + 1.0);
-    v3 white = {1.0, 1.0, 1.0}, blue = {0.3, 0.5, 1.0};
+    v3 white = {1,1,1}, blue = {.3,.5,1};
     v3 t = v3_add(v3_scale(blue, 1.0 - a), v3_scale(white, a));
     return (colour){t.x, t.y, t.z};
- 	// return (colour) {1,1,1};
+    // return (colour){0,0,0};
 }
 
 static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
@@ -62,6 +62,7 @@ static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
 	mat mat = sc->mat_lib->materials[best_h.mat_id];
 	bsdf_result bsdf = eval_bsdf(&mat.root_socket, &ctx);
 	if (!bsdf.scattered) return v3_to_colour(bsdf.emission);
+	// if (!bsdf.scattered) return (colour){1,0,0};
 
 	// v3 bounce_dir = v3_norm(v3_add(best_h.normal, v3_random(rng_state)));
 	// v3 bounce_dir = v3_norm( v3_add( v3_add( best_h.normal, random_dir() ), v3_scale( v3_reflect( r.dir, best_h.normal ), 1-roughness )));
@@ -71,8 +72,8 @@ static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
     colour incoming = ray_color(new_r, sc, depth+1, rng_state);
 
     // TODO: implement random early exit somehow
-    // f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
-    // if (random_value(&rng_state) >= p) stop tracing this path
+    f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
+    if (random_f64(rng_state) >= p) return incoming;
 
     return colour_multiply(incoming, v3_to_colour(bsdf.attenuation));
 }

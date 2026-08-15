@@ -1,5 +1,9 @@
+#include <string.h>
+#include <stdlib.h>
+
 #include "../include/mat.h"
 #include "../include/v3.h"
+#include "../include/log.h"
 
 // example of a value node (Color Node)
 // mat_node color_node = {
@@ -77,9 +81,71 @@ bsdf_result eval_bsdf(mat_node_socket* s, shading_ctx* ctx) {
 
 			return (bsdf_result) { .attenuation = colour, .dir = dir, .emission = {0}, .scattered = 1};
 
+		case NODE_EMISSION:
+			if (n->out_type != NV_BSDF) break;
+			if (n->inputs.count != 2) break;
+			v3 colour1 = eval_value(&n->inputs.sockets[0], ctx).v3;
+			f64 strength = eval_value(&n->inputs.sockets[1], ctx).value;
+
+			return (bsdf_result) { .attenuation = {0}, .dir = {0}, .emission = v3_scale(colour1, strength), .scattered = 0};
+
 		default:
 			break;
 	}
 
 	return (bsdf_result) { .attenuation = {0}, .dir = {0}, .emission = {0,0,0}, .scattered = 0};
 }
+
+int mat_lib_push_material(mat_lib* lib, mat m) {
+    if (lib->count >= lib->cap) {
+        size_t new_cap = (lib->cap == 0) ? 32 : lib->cap * 2;
+        mat* new_materials = realloc(lib->materials, new_cap * sizeof(mat));
+        if (!new_materials) return -1;
+
+        lib->materials = new_materials;
+        lib->cap = new_cap;
+    }
+
+    lib->materials[lib->count] = m;
+    lib->count++;
+    return 0;
+}
+
+int mat_get(mat_lib* lib, const char* name) {
+
+	for (int i = 0; i < lib->count; ++i) {
+		if (strcmp(name, lib->materials[i].name) == 0) return i;
+	}
+	return -1;
+}
+
+int mat_create(mat_lib* lib, char* name) {
+	int id = mat_get(lib, name);
+	if (id != -1) {
+		print(WARNING, "Material `%s` already exists.", name);
+		return id;
+	}
+
+	mat m = {
+		.name = strdup(name),
+		.root_socket = (mat_node_socket) { .type = NV_BSDF, .link = NULL }
+	};
+
+	if (mat_lib_push_material(lib, m) == -1) {
+		print(ERROR, "Failed to add material `%s` to library. Library is now ruined :)", name);
+		return -1;
+	}
+	print(INFO, "Material `%s` created.", name);
+	return lib->count-1;
+}
+
+// mat_node* diffuse_bsdf(colour c) {
+// 	mat_node* m = malloc(sizeof(mat_node));
+// 	mat_node_socket* s = malloc(sizeof(mat_node_socket));
+// 	if (!m) return NULL;
+
+// 	s->type = NV_COLOUR;
+// 	s->data.v3 = colour_to_v3(c);
+// 	s->link = NULL;
+// 	m->;
+// }

@@ -2,16 +2,18 @@
 #define _MAT_H
 
 #include "types.h"
+#include "colour.h"
 
 typedef enum {
-	NODE_CONST_COLOR,
+	NODE_CONST_COLOUR,
 	NODE_CONST_FLOAT,
 
-	NODE_DIFFUSE
+	NODE_DIFFUSE,
+	NODE_EMISSION,
 } mat_node_type;
 
 typedef enum {
-	NV_COLOR,
+	NV_COLOUR,
 	NV_FLOAT,
 	NV_BSDF,
 } mat_node_value_type;
@@ -69,5 +71,10 @@ typedef struct {
 
 
 bsdf_result eval_bsdf(mat_node_socket* s, shading_ctx* ctx);
+
+int mat_get(mat_lib* lib, const char* name);
+int mat_create(mat_lib* lib, char* name);
+
+// mat_node* diffuse_bsdf(colour c);
 
 #endif

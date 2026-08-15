@@ -6,3 +6,4 @@ hikari
 src/mesh.c_tmp
 vec.py
 __pycache__/
+metal/

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
+#include <ctype.h>
 
 static boundbox boundbox_make(v3* verts, sz vcount) {
 	f64 max_x = -INFINITY, max_y = -INFINITY, max_z = -INFINITY;
@@ -51,6 +53,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 	sz tcap = 1024; sz tcount = 0;
 	tri* t = malloc(tcap*sizeof(tri));
 
+	int mat_id = 0;
 	// sz current_line = 1;
 
 	char buf[512];
@@ -81,6 +84,26 @@ void scene_load_obj(scene* scene, char* filepath) {
 				vn[vncount++] = p;
 			}
 		}
+		else if (strncmp(buf, "usemtl", 6) == 0) {
+			char name[512] = {0};
+			sz i = 0;
+			char* p = buf + 6;
+
+			while (*p == ' ' || *p == '\t') p++;
+			if (*p == '\0' || *p == '\n') continue; // would be cool to indicate an error, but that's later
+
+			while (!isspace(*p)) {
+				name[i] = *p;
+				p++;
+				i++;
+			}
+
+			mat_id = mat_get(scene->mat_lib, name);
+			if (mat_id == -1) {
+				print(INFO, "Material `%s` not found, creating...", name);
+				mat_id = mat_create(scene->mat_lib, name);
+			}
+		}
 		else if (buf[0] == 'f' && buf[1] == ' ') {
 			// scan face (v_id/vt_id/vn_id)
 			u32 v_idx[32];
@@ -89,7 +112,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 			sz n = 0;
 			char* p = buf + 1;
 			while (*p && n < 32) {
-				while (*p == ' ') p++;
+				while (*p == ' ' || *p == '\t') p++;
 				if (*p == '\0' || *p == '\n') break;
 				int v_id = -1, vt_id = -1, vn_id = -1;
 
@@ -121,7 +144,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 					(v3){  v_idx[0],  v_idx[i],  v_idx[i+1] },
 					(v3){ vt_idx[0], vt_idx[i], vt_idx[i+1] },
 					(v3){ vn_idx[0], vn_idx[i], vn_idx[i+1] },
-					0 // material index
+					mat_id // material index
 				};
 			}
 			// current_line++;

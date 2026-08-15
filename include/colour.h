@@ -54,8 +54,8 @@ static inline colour colour_srgb_i(int r, int g, int b) {
 	return (colour) { r / 255.0, g / 255.0, b / 255.0 };
 }
 
-static inline colour v3_to_colour(v3 v) {
-	return (colour) { v.x, v.y, v.z };
-}
+static inline colour v3_to_colour(v3 v) { return (colour){v.x, v.y, v.z}; }
+static inline v3 colour_to_v3(colour v) { return (v3){v.r, v.g, v.b}; }
+
 
 #endif
