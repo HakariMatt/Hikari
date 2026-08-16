@@ -3,12 +3,8 @@ output.ppm
 output.png
 assets/models/
 hikari
+hikarimtl
 src/mesh.c_tmp
 vec.py
 __pycache__/
-metal/
-assets/shaders/shader.air
 assets/shaders/shader.metallib
-test_metal
-stub_output.ppm
-metal_backend.o
