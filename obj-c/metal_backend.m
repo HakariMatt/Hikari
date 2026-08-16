@@ -2,6 +2,7 @@
 #import <Foundation/Foundation.h>
 #include <string.h>
 #include "../include/metal_backend.h"
+#include "../include/render_backend.h"
 #include "../include/log.h"
 #include "../include/gpu_types.h"
 
@@ -53,42 +54,41 @@ metal_ctx* metal_init(void) {
 	}
 }
 
-void metal_render_sample(metal_ctx* c_ctx, f32* img, sz sample, sz width, sz height, camera cam, u32 seed) {
-	(void)seed;
+void metal_render_sample(metal_ctx* c_ctx, render_args args, uint32_t sample) {
 	if (!c_ctx) return;
 
-	@autoreleasepool {
+    @autoreleasepool {
 		HikariMetalCtx* ctx = (__bridge HikariMetalCtx*)c_ctx;
 
 		gpu_camera gcam = {
-			.origin     = to_gpu_v3(cam.origin),
-			.lower_left = to_gpu_v3(cam.lower_left),
-			.horizontal = to_gpu_v3(cam.horizontal),
-			.vertical   = to_gpu_v3(cam.vertical),
+			.origin     = to_gpu_v3(args.cam.origin),
+			.lower_left = to_gpu_v3(args.cam.lower_left),
+			.horizontal = to_gpu_v3(args.cam.horizontal),
+			.vertical   = to_gpu_v3(args.cam.vertical),
 		};
 
-		sz img_bytes = width * height * 3 * sizeof(f32);
+		sz img_bytes = args.width * args.height * 3 * sizeof(f32);
+        gpu_args gargs = {
+            .width = args.width,
+            .height = args.height,
+            .cam = gcam
+		};
+
 		// id<MTLBuffer> out_buf = [ctx.device newBufferWithLength:img_bytes
 		//                                                   options:MTLResourceStorageModeShared];
-		id<MTLBuffer> img_buf = [ctx.device newBufferWithBytes:img length:img_bytes options:MTLResourceStorageModeShared];
-
-		uint32_t w = (uint32_t)width, h = (uint32_t)height, s = (uint32_t)sample;
-		id<MTLBuffer> s_num = [ctx.device newBufferWithBytes:&s length:sizeof(s) options:MTLResourceStorageModeShared];
-		id<MTLBuffer> w_buf = [ctx.device newBufferWithBytes:&w length:sizeof(w) options:MTLResourceStorageModeShared];
-		id<MTLBuffer> h_buf = [ctx.device newBufferWithBytes:&h length:sizeof(h) options:MTLResourceStorageModeShared];
-		id<MTLBuffer> cam_buf = [ctx.device newBufferWithBytes:&gcam length:sizeof(gcam) options:MTLResourceStorageModeShared];
+		id<MTLBuffer> img_buf = [ctx.device newBufferWithBytes:args.img length:img_bytes options:MTLResourceStorageModeShared];
+        id<MTLBuffer> rargs = [ctx.device newBufferWithBytes:&gargs length:sizeof(gpu_args)options:MTLResourceStorageModeShared];
+        id<MTLBuffer> sample_num = [ctx.device newBufferWithBytes:&sample length:sizeof(sample) options:MTLResourceStorageModeShared];
 
 		id<MTLCommandBuffer> cmd = [ctx.queue commandBuffer];
 		id<MTLComputeCommandEncoder> enc = [cmd computeCommandEncoder];
 
 		[enc setComputePipelineState:ctx.pipeline];
 		[enc setBuffer:img_buf offset:0 atIndex:0];
-		[enc setBuffer:s_num offset:0 atIndex:1];
-		[enc setBuffer:w_buf offset:0 atIndex:2];
-		[enc setBuffer:h_buf offset:0 atIndex:3];
-		[enc setBuffer:cam_buf offset:0 atIndex:4];
+		[enc setBuffer:rargs offset:0 atIndex:1];
+		[enc setBuffer:sample_num offset:0 atIndex:2];
 
-		MTLSize grid = MTLSizeMake(width, height, 1);
+		MTLSize grid = MTLSizeMake(args.width, args.height, 1);
 		NSUInteger tw = ctx.pipeline.threadExecutionWidth;
 		NSUInteger th = ctx.pipeline.maxTotalThreadsPerThreadgroup / tw;
 		MTLSize threadgroup = MTLSizeMake(tw, th, 1);
@@ -98,7 +98,7 @@ void metal_render_sample(metal_ctx* c_ctx, f32* img, sz sample, sz width, sz hei
 		[cmd commit];
 		[cmd waitUntilCompleted];
 
-		memcpy(img, img_buf.contents, img_bytes);
+		memcpy(args.img, img_buf.contents, img_bytes);
 	}
 }
 

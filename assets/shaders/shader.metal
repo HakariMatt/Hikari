@@ -30,21 +30,19 @@ float3 ray_color(ray r, uint depth) {
 
 
 kernel void render_sample( device float* out           [[buffer(0)]],
-                           constant uint& sample_num   [[buffer(1)]],
-                           constant uint& width        [[buffer(2)]],
-                           constant uint& height       [[buffer(3)]],
-                           constant gpu_camera& cam    [[buffer(4)]],
+						   constant gpu_args& args    [[buffer(1)]],
+						   constant uint& sample_num   [[buffer(2)]],
                            uint2 gid                   [[thread_position_in_grid]])
 {
-    if (gid.x >= width || gid.y >= height) return;
-    uint idx = (gid.y * width + gid.x) * 3;
+    if (gid.x >= args.width || gid.y >= args.height) return;
+    uint idx = (gid.y * args.width + gid.x) * 3;
 
     float3 old_pixel = float3(out[idx+0], out[idx+1], out[idx+2]);
 
-    float u = float(gid.x) / float(width - 1);
-    float v = 1.0 - float(gid.y) / float(height - 1);
+    float u = float(gid.x) / float(args.width - 1);
+    float v = 1.0 - float(gid.y) / float(args.height - 1);
 
-    ray r = camera_get_ray(cam, u, v);
+    ray r = camera_get_ray(args.cam, u, v);
 
     float3 sample = ray_color(r, 1);
     float3 color = old_pixel + ((sample - old_pixel) / (sample_num+1));

@@ -14,4 +14,9 @@ typedef struct {
     gpu_v3 vertical;
 } gpu_camera;
 
+typedef struct {
+  const unsigned int width, height;
+  gpu_camera cam;
+} gpu_args;
+
 #endif
