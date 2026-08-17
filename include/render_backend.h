@@ -17,6 +17,7 @@ typedef struct {
     camera cam;
     scene scene;
     render_state* state;
+    void* ctx;
 } render_args;
 
 #endif

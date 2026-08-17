@@ -7,8 +7,9 @@
 
 typedef struct metal_ctx metal_ctx; // opaque — never dereferenced on the C side
 
-metal_ctx* metal_init(void);
-void metal_render_sample(metal_ctx* c_ctx, render_args args, uint32_t sample);
-void metal_shutdown(metal_ctx* ctx);
+metal_ctx* metalInit(void);
+int metalUploadScene(metal_ctx *c_ctx, scene *sc);
+void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t sampleNumber);
+void metalShutdown(metal_ctx* c_ctx);
 
 #endif

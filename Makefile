@@ -1,32 +1,68 @@
 CC = clang
-CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp \
-         -I/opt/homebrew/opt/raylib/include -L/opt/homebrew/opt/raylib/lib -lraylib \
-         -framework Cocoa -framework OpenGL -framework IOKit -Wall -Wextra
-target = hikari
+
+COMMON_CFLAGS = -Wall -Wextra -Iinclude -MMD -MP
+
+CPU_CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
+
+RAYLIB_FLAGS = -I/opt/homebrew/opt/raylib/include -L/opt/homebrew/opt/raylib/lib -lraylib \
+				-framework Cocoa -framework OpenGL -framework IOKit
+
+target_cpu = hikari
 target_mtl = hikarimtl
 
-sources = $(wildcard src/*.c)
 shaders_dir = assets/shaders
-obj_c_dir = obj-c
-metal_shader = assets/shaders/shader.metal
+obj_c_dir   = obj-c
+metal_shader = $(shaders_dir)/shader.metal
+metal_lib    = $(shaders_dir)/shader.metallib
 
-all:
-	$(CC) $(CFLAGS) $(sources) -o $(target)
+obj_cpu_dir = obj/cpu
+obj_mtl_dir = obj/mtl
 
-shader.metallib: $(shaders_dir)/shader.metal
-	xcrun -sdk macosx metal -c $(shaders_dir)/shader.metal -o $(shaders_dir)/shader.air
-	xcrun -sdk macosx metallib $(shaders_dir)/shader.air -o $(shaders_dir)/shader.metallib
+cpu_sources = $(filter-out src/main_mtl.c, $(wildcard src/*.c))
+mtl_sources = $(filter-out src/main.c src/render.c, $(wildcard src/*.c))
+
+cpu_objects = $(patsubst src/%.c, $(obj_cpu_dir)/%.o, $(cpu_sources))
+mtl_objects = $(patsubst src/%.c, $(obj_mtl_dir)/%.o, $(mtl_sources))
+
+.PHONY: all cpu metal clean
+
+all: cpu
+
+
+cpu: $(target_cpu)
+
+$(target_cpu): $(cpu_objects)
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(RAYLIB_FLAGS) $(cpu_objects) -o $@
+
+$(obj_cpu_dir)/%.o: src/%.c | $(obj_cpu_dir)
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -c $< -o $@
+
+$(obj_cpu_dir):
+	mkdir -p $@
+
+
+metal: $(target_mtl) $(metal_lib)
+
+$(target_mtl): $(mtl_objects) $(obj_mtl_dir)/metal_backend.o
+	$(CC) $(COMMON_CFLAGS) $(RAYLIB_FLAGS) $(mtl_objects) $(obj_mtl_dir)/metal_backend.o -o $@ \
+		-framework Metal -framework Foundation -framework QuartzCore -lobjc
+
+$(obj_mtl_dir)/%.o: src/%.c | $(obj_mtl_dir)
+	$(CC) $(COMMON_CFLAGS) -c $< -o $@
+
+$(obj_mtl_dir)/metal_backend.o: $(obj_c_dir)/metal_backend.m include/metal_backend.h | $(obj_mtl_dir)
+	$(CC) -fobjc-arc -x objective-c $(COMMON_CFLAGS) -c $(obj_c_dir)/metal_backend.m -o $@
+
+$(obj_mtl_dir):
+	mkdir -p $@
+
+$(metal_lib): $(metal_shader)
+	xcrun -sdk macosx metal -c $(metal_shader) -o $(shaders_dir)/shader.air
+	xcrun -sdk macosx metallib $(shaders_dir)/shader.air -o $(metal_lib)
 	rm $(shaders_dir)/shader.air
 
-metal_backend.o: $(obj_c_dir)/metal_backend.m include/metal_backend.h
-	clang -fobjc-arc -x objective-c -c $(obj_c_dir)/metal_backend.m -o metal_backend.o
-
-test_metal: src/main_mtl.c metal_backend.o shader.metallib
-	clang src/main_mtl.c src/camera.c metal_backend.o -o $(target_mtl) \
-		-framework Metal -framework Foundation -framework QuartzCore -lobjc
-	rm metal_backend.o
-
-metal: test_metal shader.metallib
-
 clean:
-	rm $(target)
+	rm -rf obj $(target_cpu) $(target_mtl) $(shaders_dir)/shader.air $(metal_lib)
+
+-include $(cpu_objects:.o=.d)
+-include $(mtl_objects:.o=.d)

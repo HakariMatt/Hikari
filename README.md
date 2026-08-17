@@ -1,6 +1,6 @@
 # Hikari
 
-A software CPU-only raytracer written in C.
+A raytracer written in C (and Metal Shading Language).
 
 ## Sample render
  - resolution 960x1440

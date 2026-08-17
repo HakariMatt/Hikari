@@ -19,4 +19,9 @@ typedef struct {
   gpu_camera cam;
 } gpu_args;
 
+typedef struct {
+    unsigned int mat_id;
+    unsigned int n0, n1, n2;
+} gpu_tri_attrs;
+
 #endif
