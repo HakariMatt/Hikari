@@ -22,6 +22,7 @@ typedef struct {
 typedef struct {
     unsigned int mat_id;
     unsigned int n0, n1, n2;
+    gpu_v3 true_normal;
 } gpu_tri_attrs;
 
 #endif

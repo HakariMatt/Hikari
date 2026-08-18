@@ -27,6 +27,17 @@
 static gpu_v3 to_gpu_v3(v3 v) {
 	return (gpu_v3){ (float)v.x, (float)v.y, (float)v.z };
 }
+static gpu_v3 gpu_v3_sub(gpu_v3 a, gpu_v3 b) {
+  return (gpu_v3){a.x - b.x, a.y - b.y, a.z - b.z};
+}
+static gpu_v3 gpu_v3_cross(gpu_v3 a, gpu_v3 b) {
+  return (gpu_v3){a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,
+                  a.x * b.y - a.y * b.x};
+}
+static gpu_v3 gpu_v3_norm(gpu_v3 v) {
+  float len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+  return (gpu_v3){v.x / len, v.y / len, v.z / len};
+}
 
 metal_ctx* metalInit(void) {
   @autoreleasepool {
@@ -101,21 +112,27 @@ int metalUploadScene(metal_ctx *c_ctx, scene *sc) {
         vertices[v + vertexOffset] = to_gpu_v3(m.verts[v]);
 
       for (sz n = 0; n < m.nv_norms; ++n)
-        normals[n + normalOffset] = to_gpu_v3(m.verts[n]);
+        normals[n + normalOffset] = to_gpu_v3(m.v_norms[n]);
 
       for (sz t = 0; t < m.ntris; ++t) {
-        tri tr = m.tris[t];
+        tri tri = m.tris[t];
         sz idx = triOffset + t;
 
-        indices[idx * 3 + 0] = (u32)tr.verts_idx.x + (u32)vertexOffset;
-        indices[idx * 3 + 1] = (u32)tr.verts_idx.y + (u32)vertexOffset;
-        indices[idx * 3 + 2] = (u32)tr.verts_idx.z + (u32)vertexOffset;
+        indices[idx * 3 + 0] = (u32)tri.verts_idx.x + (u32)vertexOffset;
+        indices[idx * 3 + 1] = (u32)tri.verts_idx.y + (u32)vertexOffset;
+        indices[idx * 3 + 2] = (u32)tri.verts_idx.z + (u32)vertexOffset;
 
-        triAttributes[idx] = (gpu_tri_attrs) {
-          .mat_id = (u32)tr.mat_id,
-          .n0 = (u32)tr.v_norms_idx.x + (u32)normalOffset,
-          .n1 = (u32)tr.v_norms_idx.y + (u32)normalOffset,
-          .n2 = (u32)tr.v_norms_idx.z + (u32)normalOffset,
+        gpu_v3 p0 = vertices[indices[idx * 3 + 0]];
+        gpu_v3 p1 = vertices[indices[idx * 3 + 1]];
+        gpu_v3 p2 = vertices[indices[idx * 3 + 2]];
+        gpu_v3 true_normal = gpu_v3_norm(gpu_v3_cross(gpu_v3_sub(p1, p0), gpu_v3_sub(p2, p0)));
+
+        triAttributes[idx] = (gpu_tri_attrs){
+            .mat_id = (u32)tri.mat_id,
+            .n0 = (u32)tri.v_norms_idx.x + (u32)normalOffset,
+            .n1 = (u32)tri.v_norms_idx.y + (u32)normalOffset,
+            .n2 = (u32)tri.v_norms_idx.z + (u32)normalOffset,
+            .true_normal = true_normal,
         };
       }
 
@@ -246,6 +263,8 @@ void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t s
     [commandEncoder setBuffer:sampleNumberBuffer offset:0 atIndex:2];
     [commandEncoder setAccelerationStructure:ctx.accelerationStructure
                                atBufferIndex:3];
+    if (ctx.normalBuffer)
+      [commandEncoder setBuffer:ctx.normalBuffer offset:0 atIndex:4];
     [commandEncoder setBuffer:ctx.triAttributesBuffer offset:0 atIndex:5];
 
     MTLSize grid =

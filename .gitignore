@@ -1,5 +1,6 @@
 .DS_Store
 output.ppm
+output_gpu.ppm
 output.png
 assets/models/
 hikari

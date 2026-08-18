@@ -5,36 +5,6 @@
 #include "../include/v3.h"
 #include "../include/log.h"
 
-// example of a value node (Color Node)
-// mat_node color_node = {
-//     .type = NODE_CONST_COLOR,
-//     .out_type = NV_COLOR,
-//     .out_data = (v3){1.0, 0.5, 0.0},
-//     .sockets = (mat_node_sockets){0}
-// }
-//
-// example of a Diffuse BSDF node
-// mat_node diffuse_bsdf = {
-//     .type = NODE_DIFFUSE,
-//     .out_type = NV_BSDF,
-//     .out_data = {0},
-//     .sockets = (mat_node_sockets){
-//         .sockets = {
-//             (mat_node_socket) { .type = NV_COLOR, .data = (v3){1,1,1}, .link = &color_node },
-//             (mat_node_socket) { .type = NV_FLOAT, .data = 0.5, .link = NULL },
-//         },
-//         .count = 2,
-//         .cap = 2,
-//     }
-// }
-//
-// this is basically
-//
-// [     RGB     ]      [  Diffuse BSDF  ]
-// | 1.0 0.5 0.0 | -->--o Color     BSDF o
-//                      |                |
-//                      o Roughness: 0.5 |
-
 
 v3 sample_cosine_hemisphere(v3 n, f64 *pdf_out, u32* rng_state) {
 	f64 u1 = random_f64(rng_state);
@@ -54,66 +24,56 @@ v3 sample_cosine_hemisphere(v3 n, f64 *pdf_out, u32* rng_state) {
     return dir;
 }
 
-mat_node_value_data eval_value(mat_node_socket* s, shading_ctx* ctx) {
-	if (!s->link) return s->data;
+mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx) {
+	mat_node_socket* s = &lib->sockets[socket_idx];
+	if (s->link == -1) return s->data;
 
 	// for now
-	return s->link->out_data;
+	return lib->nodes[s->link].out_data;
 	// later with texturing and procedural noise will need switch case on node type
 	// and do all the ctx shenanigans
 }
 
-bsdf_result eval_bsdf(mat_node_socket* s, shading_ctx* ctx) {
-	if (!s->link) return (bsdf_result){0};
+bsdf_result eval_bsdf(mat_lib* lib, i32 node_idx, shading_ctx* ctx) {
+	if (node_idx == -1) return (bsdf_result){0};
+	mat_node* n = &lib->nodes[node_idx];
 
-	mat_node* n = s->link;
 	switch (n->type) {
-		case NODE_DIFFUSE:
-			if (n->out_type != NV_BSDF) break;
-			if (n->inputs.count != 1) break;
-
-			v3 colour = eval_value(&n->inputs.sockets[0], ctx).v3;
-			v3 dir = {0};
+		case NODE_DIFFUSE: {
+			v3 colour = eval_value(lib, n->input_start, ctx).v3;
 			f64 pdf = 0;
-
-			dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
+			v3 dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
 			if (v3_dot(dir, ctx->true_normal) <= 0) dir = ctx->normal;
-
-			return (bsdf_result) { .attenuation = colour, .dir = dir, .emission = {0}, .scattered = 1};
-
-		case NODE_EMISSION:
-			if (n->out_type != NV_BSDF) break;
-			if (n->inputs.count != 2) break;
-			v3 colour1 = eval_value(&n->inputs.sockets[0], ctx).v3;
-			f64 strength = eval_value(&n->inputs.sockets[1], ctx).value;
-
-			return (bsdf_result) { .attenuation = {0}, .dir = {0}, .emission = v3_scale(colour1, strength), .scattered = 0};
-
+			return (bsdf_result){ .attenuation = colour, .dir = dir, .scattered = 1 };
+		}
+		case NODE_EMISSION: {
+			v3 colour    = eval_value(lib, n->input_start + 0, ctx).v3;
+			f64 strength = eval_value(lib, n->input_start + 1, ctx).value;
+			return (bsdf_result){ .emission = v3_scale(colour, strength), .scattered = 0 };
+		}
 		default:
-			break;
+			return (bsdf_result){0};
 	}
-
-	return (bsdf_result) { .attenuation = {0}, .dir = {0}, .emission = {0,0,0}, .scattered = 0};
 }
 
 int mat_lib_push_material(mat_lib* lib, mat m) {
-    if (lib->count >= lib->cap) {
-        size_t new_cap = (lib->cap == 0) ? 32 : lib->cap * 2;
+    if (lib->mat_count >= lib->mat_cap) {
+    size_t new_cap = (lib->mat_cap == 0) ? 32 : lib->mat_cap * 2;
         mat* new_materials = realloc(lib->materials, new_cap * sizeof(mat));
         if (!new_materials) return -1;
 
         lib->materials = new_materials;
-        lib->cap = new_cap;
+        lib->mat_cap = new_cap;
     }
 
-    lib->materials[lib->count] = m;
-    lib->count++;
+    lib->materials[lib->mat_count] = m;
+    lib->mat_count++;
     return 0;
 }
 
 int mat_get(mat_lib* lib, const char* name) {
 
-	for (int i = 0; i < lib->count; ++i) {
+	for (int i = 0; i < lib->mat_count; ++i) {
 		if (strcmp(name, lib->materials[i].name) == 0) return i;
 	}
 	return -1;
@@ -128,15 +88,50 @@ int mat_create(mat_lib* lib, char* name) {
 
 	mat m = {
 		.name = strdup(name),
-		.root_socket = (mat_node_socket) { .type = NV_BSDF, .link = NULL }
+		.root_socket = -1
 	};
 
 	if (mat_lib_push_material(lib, m) == -1) {
-		print(ERROR, "Failed to add material `%s` to library. Library is now ruined :)", name);
+		print(ERROR, "Failed to add material `%s` to library.", name);
 		return -1;
 	}
 	print(INFO, "Material `%s` created.", name);
-	return lib->count-1;
+	return lib->mat_count-1;
+}
+
+static i32 mat_lib_push_socket(mat_lib* lib, mat_node_socket s) {
+	if (lib->socket_count >= lib->socket_cap) {
+		lib->socket_cap = lib->socket_cap ? lib->socket_cap * 2 : 64;
+		lib->sockets = realloc(lib->sockets, lib->socket_cap * sizeof(mat_node_socket));
+	}
+	lib->sockets[lib->socket_count] = s;
+	return (i32)(lib->socket_count++);
+}
+
+static i32 mat_lib_push_node(mat_lib* lib, mat_node n) {
+	if (lib->node_count >= lib->node_cap) {
+		lib->node_cap = lib->node_cap ? lib->node_cap * 2 : 64;
+		lib->nodes = realloc(lib->nodes, lib->node_cap * sizeof(mat_node));
+	}
+	lib->nodes[lib->node_count] = n;
+	return (i32)(lib->node_count++);
+}
+
+i32 mat_node_diffuse(mat_lib* lib, v3 colour) {
+	i32 start = mat_lib_push_socket(lib, (mat_node_socket){ .type = NV_COLOUR, .data.v3 = colour, .link = -1 });
+	return mat_lib_push_node(lib, (mat_node){
+		.type = NODE_DIFFUSE, .out_type = NV_BSDF,
+		.input_start = start, .input_count = 1
+	});
+}
+
+i32 mat_node_emission(mat_lib* lib, v3 colour, f64 strength) {
+	i32 start = mat_lib_push_socket(lib, (mat_node_socket){ .type = NV_COLOUR, .data.v3 = colour, .link = -1 });
+	mat_lib_push_socket(lib, (mat_node_socket){ .type = NV_FLOAT, .data.value = strength, .link = -1 });
+	return mat_lib_push_node(lib, (mat_node){
+		.type = NODE_EMISSION, .out_type = NV_BSDF,
+		.input_start = start, .input_count = 2
+	});
 }
 
 // mat_node* diffuse_bsdf(colour c) {

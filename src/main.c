@@ -37,116 +37,7 @@ int main(void) {
 	// scene setup
 	scene sc = {0};
 
-	// mat_node RGB_node = {
-	// 	.type = NODE_CONST_COLOUR,
-	// 	.out_type = NV_COLOUR,
-	// 	.out_data.v3 = (v3) {0,0,0},	// should be able to set its value in API
-	// 	.inputs = (mat_node_sockets){0}
-	// };
-
-	mat_node_socket halo_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {0.296138, 1.000000, 0.520996}, .link = NULL },
-		(mat_node_socket) { .type = NV_FLOAT, .data.value = 5, .link = NULL },
-	};
-	mat_node halo = {
-		.type = NODE_EMISSION,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = halo_sockets,
-			.count = 2,
-			.cap = 2,
-		}
-	};
-
-	mat_node_socket light_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {1, 1, 1}, .link = NULL },
-		(mat_node_socket) { .type = NV_FLOAT, .data.value = 20, .link = NULL },
-	};
-	mat_node light = {
-		.type = NODE_EMISSION,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = light_sockets,
-			.count = 2,
-			.cap = 2,
-		}
-	};
-
-	mat_node_socket body_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {0.000000, 0.954206, 1.000000}, .link = NULL },
-	};
-	mat_node body = {
-		.type = NODE_DIFFUSE,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = body_sockets,
-			.count = 1,
-			.cap = 1,
-		}
-	};
-
-	mat_node_socket hair_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {0, 1, 0.223717}, .link = NULL },
-	};
-	mat_node hair = {
-		.type = NODE_DIFFUSE,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = hair_sockets,
-			.count = 1,
-			.cap = 1,
-		}
-	};
-
-	mat_node_socket eye_mouth_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {1,1,1}, .link = NULL },
-	};
-	mat_node eye_mouth = {
-		.type = NODE_DIFFUSE,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = eye_mouth_sockets,
-			.count = 1,
-			.cap = 1,
-		}
-	};
-
-	mat_node_socket face_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {1.000000, 0.822792, 0.693886}, .link = NULL },
-	};
-	mat_node face = {
-		.type = NODE_DIFFUSE,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = face_sockets,
-			.count = 1,
-			.cap = 1,
-		}
-	};
-
-	mat_node_socket floor_sockets[] = {
-		(mat_node_socket) { .type = NV_COLOUR, .data.v3 = {0.056085, 0.057917, 0.072421}, .link = NULL },
-	};
-	mat_node floor = {
-		.type = NODE_DIFFUSE,
-		.out_type = NV_BSDF,
-		.out_data = {0},
-		.inputs = (mat_node_sockets){
-			.sockets = floor_sockets,
-			.count = 1,
-			.cap = 1,
-		}
-	};
-
 	mat_lib m_lib = {0};
-	// int i = mat_create(&m_lib, )
-
 	sc.mat_lib = &m_lib;
 
     camera cam = camera_make(
@@ -156,22 +47,35 @@ int main(void) {
 
    	scene_load_obj(&sc, "assets/models/Hikari_with_bg.obj");
 
-    int i = 0;
+    sz i = 0;
 
     i = mat_get(sc.mat_lib, "Halo");
-    sc.mat_lib->materials[i].root_socket.link = &halo;
+    int halo = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 5);
+    sc.mat_lib->materials[i].root_socket = halo;
+
     i = mat_get(sc.mat_lib, "CH0242_Body");
-    sc.mat_lib->materials[i].root_socket.link = &body;
+    int body = mat_node_diffuse(&m_lib, (v3){0.000000, 0.954206, 1.000000});
+    sc.mat_lib->materials[i].root_socket = body;
+
     i = mat_get(sc.mat_lib, "CH0242_Hair_2");
-    sc.mat_lib->materials[i].root_socket.link = &hair;
+    int hair = mat_node_diffuse(&m_lib, (v3){0, 1, 0.223717});
+    sc.mat_lib->materials[i].root_socket = hair;
+
     i = mat_get(sc.mat_lib, "CH0242_EyeMouth");
-    sc.mat_lib->materials[i].root_socket.link = &eye_mouth;
+    int eye = mat_node_diffuse(&m_lib, (v3){1,1,1});
+    sc.mat_lib->materials[i].root_socket = eye;
+
     i = mat_get(sc.mat_lib, "CH0242_Face");
-    sc.mat_lib->materials[i].root_socket.link = &face;
+    int face = mat_node_diffuse(&m_lib, (v3){1.000000, 0.822792, 0.693886});
+    sc.mat_lib->materials[i].root_socket = face;
+
     i = mat_get(sc.mat_lib, "Floor");
-    sc.mat_lib->materials[i].root_socket.link = &floor;
+    int floor = mat_node_diffuse(&m_lib, (v3){0.056085, 0.057917, 0.072421});
+    sc.mat_lib->materials[i].root_socket = floor;
+
     i = mat_get(sc.mat_lib, "Light");
-    sc.mat_lib->materials[i].root_socket.link = &light;
+    int light = mat_node_emission(&m_lib, (v3){1, 1, 1}, 50);
+    sc.mat_lib->materials[i].root_socket = light;
 
     for (sz i = 0; i < sc.obj_count; ++i) {
     	sc.objects[i].bvh = bvh_build_root(sc.objects[i].mesh);

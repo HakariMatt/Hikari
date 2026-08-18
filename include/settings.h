@@ -10,7 +10,7 @@
 #define WIDTH  			480		// dimensions of the image in pixels
 #define HEIGHT			720
 #define MAX_BOUNCES 	8		// how many times ray can bounce before dying off
-#define N_SAMPLES		256		// number of samples per pixel
+#define N_SAMPLES		10		// number of samples per pixel
 
 //advanced (dont touch)
 #define BVH_MAX_DEPTH   24

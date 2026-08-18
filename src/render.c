@@ -49,6 +49,7 @@ static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
 
 	if (!best_h.hit) return sky_colour(r);
 
+
 	// f64 roughness = 0.2;
 
 	shading_ctx ctx = {
@@ -59,8 +60,8 @@ static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
 		.rng_state = rng_state
 	};
 
-	mat mat = sc->mat_lib->materials[best_h.mat_id];
-	bsdf_result bsdf = eval_bsdf(&mat.root_socket, &ctx);
+	mat m = sc->mat_lib->materials[best_h.mat_id];
+	bsdf_result bsdf = eval_bsdf(sc->mat_lib, m.root_socket, &ctx);
 	if (!bsdf.scattered) return v3_to_colour(bsdf.emission);
 	// if (!bsdf.scattered) return (colour){1,0,0};
 
@@ -76,6 +77,7 @@ static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
     if (random_f64(rng_state) >= p) return incoming;
 
     return colour_multiply(incoming, v3_to_colour(bsdf.attenuation));
+    // return incoming;
 }
 
 void render_progressive(render_args* args) {
