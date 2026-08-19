@@ -18,8 +18,8 @@ metal_lib    = $(shaders_dir)/shader.metallib
 obj_cpu_dir = obj/cpu
 obj_mtl_dir = obj/mtl
 
-cpu_sources = $(filter-out src/main_mtl.c, $(wildcard src/*.c))
-mtl_sources = $(filter-out src/main.c src/render.c, $(wildcard src/*.c))
+cpu_sources = $(wildcard src/*.c)
+mtl_sources = $(wildcard src/*.c)
 
 cpu_objects = $(patsubst src/%.c, $(obj_cpu_dir)/%.o, $(cpu_sources))
 mtl_objects = $(patsubst src/%.c, $(obj_mtl_dir)/%.o, $(mtl_sources))
@@ -44,14 +44,14 @@ $(obj_cpu_dir):
 metal: $(target_mtl) $(metal_lib)
 
 $(target_mtl): $(mtl_objects) $(obj_mtl_dir)/metal_backend.o
-	$(CC) $(COMMON_CFLAGS) $(RAYLIB_FLAGS) $(mtl_objects) $(obj_mtl_dir)/metal_backend.o -o $@ \
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(RAYLIB_FLAGS) $(mtl_objects) $(obj_mtl_dir)/metal_backend.o -o $@ \
 		-framework Metal -framework Foundation -framework QuartzCore -lobjc
 
 $(obj_mtl_dir)/%.o: src/%.c | $(obj_mtl_dir)
-	$(CC) $(COMMON_CFLAGS) -c $< -o $@
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -DHIKARI_METAL -c $< -o $@
 
 $(obj_mtl_dir)/metal_backend.o: $(obj_c_dir)/metal_backend.m include/metal_backend.h | $(obj_mtl_dir)
-	$(CC) -fobjc-arc -x objective-c $(COMMON_CFLAGS) -c $(obj_c_dir)/metal_backend.m -o $@
+	$(CC) -fobjc-arc -x objective-c $(COMMON_CFLAGS) -DHIKARI_METAL -c $(obj_c_dir)/metal_backend.m -o $@
 
 $(obj_mtl_dir):
 	mkdir -p $@

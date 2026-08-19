@@ -15,6 +15,23 @@
 #include "../include/log.h"
 #include "../include/mat.h"
 
+
+static int cpu_backend_init(render_args* args) {
+	for (sz i = 0; i < args->scene.obj_count; ++i) {
+		args->scene.objects[i].bvh = bvh_build_root(args->scene.objects[i].mesh);
+	}
+	return 0;
+}
+
+static void cpu_backend_shutdown(render_args* args) { (void)args; }
+
+const render_backend cpu_backend_ops = {
+	.name = "cpu",
+	.init = cpu_backend_init,
+	.render = render_progressive,
+	.shutdown = cpu_backend_shutdown,
+};
+
 static colour sky_colour(ray r) {
 	v3 unit_dir = v3_norm(r.dir);
     f64 a = 0.5 * (unit_dir.z + 1.0);
@@ -129,9 +146,6 @@ void render_progressive(render_args* args) {
 				ray r = camera_get_ray(cam, u, v);
 				colour sample = colour_add(total_light, ray_color(r, sc, 1, &rng_state));
 				total_light = sample;
-
-				colour_gamma(&total_light, 2.4);
-				colour_clip(&total_light, 1.0);
 
 				colour pixel = colour_add(old_px, colour_divide(colour_sub(total_light, old_px), (colour){s+1,s+1,s+1}));
 				img[idx + 0] = pixel.r;
