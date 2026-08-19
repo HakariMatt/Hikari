@@ -12,7 +12,7 @@ void display_run(render_args* args) {
 	SetConfigFlags(FLAG_WINDOW_HIGHDPI);
 	SetTraceLogLevel(LOG_NONE); // shut up bro
     InitWindow(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT+50, "render preview");
-    SetTargetFPS(5);
+    SetTargetFPS(30);
 
     f32 tex_scale = fmin(PREVIEW_MAX_WIDTH / (f32)args->width, PREVIEW_MAX_HEIGHT / (f32)args->height);
 

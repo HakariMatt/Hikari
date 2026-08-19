@@ -15,6 +15,10 @@
 @property(nonatomic, strong) id<MTLCommandQueue> queue;
 @property(nonatomic, strong) id<MTLComputePipelineState> pipeline;
 
+@property(nonatomic, strong) id<MTLBuffer> materialBuffer;
+@property(nonatomic, strong) id<MTLBuffer> nodeBuffer;
+@property(nonatomic, strong) id<MTLBuffer> socketBuffer;
+
 @property(nonatomic, strong) id<MTLBuffer> vertexBuffer;
 @property(nonatomic, strong) id<MTLBuffer> normalBuffer;
 @property(nonatomic, strong) id<MTLBuffer> triAttributesBuffer;
@@ -37,6 +41,42 @@ static gpu_v3 gpu_v3_cross(gpu_v3 a, gpu_v3 b) {
 static gpu_v3 gpu_v3_norm(gpu_v3 v) {
   float len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
   return (gpu_v3){v.x / len, v.y / len, v.z / len};
+}
+
+static gpu_mat to_gpu_mat(mat m) {
+  return (gpu_mat){.root_socket = m.root_socket};
+}
+
+static gpu_mat_node to_gpu_node(mat_node n) {
+  gpu_mat_node_value_type t = (gpu_mat_node_value_type)n.out_type;
+  gpu_mat_node_value_data d;
+
+  if (t == GPU_NV_FLOAT)
+    d.value = (float)n.out_data.value;
+  else if (t == GPU_NV_COLOUR)
+    d.v3 = to_gpu_v3(n.out_data.v3);
+  else
+    d.value = 0;
+
+  return (gpu_mat_node){.type = (gpu_mat_node_type)n.type,
+                        .out_type = t,
+                        .out_data = d,
+                        .input_count = n.input_count,
+                        .input_start = n.input_start};
+}
+
+static gpu_mat_node_socket to_gpu_socket(mat_node_socket s) {
+  gpu_mat_node_value_type t = (gpu_mat_node_value_type)s.type;
+  gpu_mat_node_value_data d;
+
+  if (t == GPU_NV_FLOAT)
+    d.value = (float)s.data.value;
+  else if (t == GPU_NV_COLOUR)
+    d.v3 = to_gpu_v3(s.data.v3);
+  else
+    d.value = 0;
+
+  return (gpu_mat_node_socket){.type = t, .data = d, .link = s.link};
 }
 
 metal_ctx* metalInit(void) {
@@ -141,6 +181,26 @@ int metalUploadScene(metal_ctx *c_ctx, scene *sc) {
       triOffset += m.ntris;
     }
 
+    // make material buffers
+    sz meterialCount = sc->mat_lib->mat_count;
+    sz nodeCount = sc->mat_lib->node_count;
+    sz socketCount = sc->mat_lib->socket_count;
+    gpu_mat *materials = malloc(meterialCount * sizeof(gpu_mat));
+    gpu_mat_node *nodes = malloc(nodeCount * sizeof(gpu_mat_node));
+    gpu_mat_node_socket *sockets =
+        malloc(socketCount * sizeof(gpu_mat_node_socket));
+
+    for (sz i = 0; i < meterialCount; ++i) {
+      materials[i] = to_gpu_mat(sc->mat_lib->materials[i]);
+    }
+    for (sz i = 0; i < nodeCount; ++i) {
+      nodes[i] = to_gpu_node(sc->mat_lib->nodes[i]);
+    }
+    for (sz i = 0; i < socketCount; ++i) {
+      sockets[i] = to_gpu_socket(sc->mat_lib->sockets[i]);
+    }
+
+
     id<MTLDevice> device = ctx.device;
     id<MTLBuffer> vertexBuffer =
         [device newBufferWithBytes:vertices
@@ -160,11 +220,26 @@ int metalUploadScene(metal_ctx *c_ctx, scene *sc) {
         [device newBufferWithBytes:triAttributes
                             length:triCount * sizeof(gpu_tri_attrs)
                            options:MTLResourceStorageModeShared];
+    id<MTLBuffer> materialBuffer =
+        [device newBufferWithBytes:materials
+                            length:meterialCount * sizeof(gpu_mat)
+                           options:MTLResourceStorageModeShared];
+    id<MTLBuffer> nodeBuffer =
+        [device newBufferWithBytes:nodes
+                            length:nodeCount * sizeof(gpu_mat_node)
+                           options:MTLResourceStorageModeShared];
+    id<MTLBuffer> socketBuffer =
+        [device newBufferWithBytes:sockets
+                            length:socketCount * sizeof(gpu_mat_node_socket)
+                           options:MTLResourceStorageModeShared];
 
     free(vertices);
     free(normals);
     free(indices);
     free(triAttributes);
+    free(materials);
+    free(nodes);
+    free(sockets);
 
     MTLAccelerationStructureTriangleGeometryDescriptor *geometryDescriptor =
         [MTLAccelerationStructureTriangleGeometryDescriptor descriptor];
@@ -207,6 +282,9 @@ int metalUploadScene(metal_ctx *c_ctx, scene *sc) {
     ctx.normalBuffer = normalBuffer;
     ctx.triAttributesBuffer = triAtttibutesBuffer;
     ctx.accelerationStructure = accelerationStructure;
+    ctx.materialBuffer = materialBuffer;
+    ctx.nodeBuffer = nodeBuffer;
+    ctx.socketBuffer = socketBuffer;
 
     print(INFO, "Uploaded %zu verts / %zu tris, acceleration structure built", vertexCount, triCount);
     return 0;
@@ -266,6 +344,10 @@ void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t s
     if (ctx.normalBuffer)
       [commandEncoder setBuffer:ctx.normalBuffer offset:0 atIndex:4];
     [commandEncoder setBuffer:ctx.triAttributesBuffer offset:0 atIndex:5];
+
+    [commandEncoder setBuffer:ctx.materialBuffer offset:0 atIndex:6];
+    [commandEncoder setBuffer:ctx.nodeBuffer offset:0 atIndex:7];
+    [commandEncoder setBuffer:ctx.socketBuffer offset:0 atIndex:8];
 
     MTLSize grid =
         MTLSizeMake(renderArguments.width, renderArguments.height, 1);

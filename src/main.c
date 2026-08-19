@@ -15,7 +15,6 @@
 #include "../include/render.h"
 #include "../include/log.h"
 #include "../include/mat.h"
-#include "../include/colour.h"
 
 // #define STOPWATCH(x) clock_gettime(CLOCK_MONOTONIC, &(x))
 

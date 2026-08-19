@@ -24,7 +24,7 @@ static void render(render_args* args) {
 	STOPWATCH(t0);
 	for (size_t i = 0; i < N_SAMPLES; ++i) {
 		metalRenderSample((metal_ctx*)args->ctx, *args, i);
-		args->state->samples_done = i;
+		args->state->samples_done = i+1;
 	}
 	STOPWATCH(t1);
 
@@ -48,7 +48,7 @@ int main(void) {
     mat_lib m_lib = {0};
     sc.mat_lib = &m_lib;
 
-    scene_load_obj(&sc, "assets/models/Hikari_with_bg.obj");
+    scene_load_obj(&sc, "assets/models/Hikari_in_cornell_box.obj");
 
     camera cam = camera_make(
         (v3)CAMERA_POS, (v3)CAMERA_LOOKAT, (v3){0,0,1},
@@ -57,28 +57,41 @@ int main(void) {
 
 
     sz i = 0;
+    int white_matte = mat_node_diffuse(&m_lib, (v3){1,1,1});
 
     i = mat_get(sc.mat_lib, "Halo");
-    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 5);
+    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 1);
+    // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.000000, 0.954206, 1.000000});
 
     i = mat_get(sc.mat_lib, "CH0242_Body");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.000000, 0.954206, 1.000000});
+    sc.mat_lib->materials[i].root_socket = white_matte;
 
     i = mat_get(sc.mat_lib, "CH0242_Hair_2");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0, 1, 0.223717});
+    sc.mat_lib->materials[i].root_socket = white_matte;
 
     i = mat_get(sc.mat_lib, "CH0242_EyeMouth");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){1,1,1});
+    sc.mat_lib->materials[i].root_socket = white_matte;
 
     i = mat_get(sc.mat_lib, "CH0242_Face");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){1.000000, 0.822792, 0.693886});
+    sc.mat_lib->materials[i].root_socket = white_matte;
 
-    i = mat_get(sc.mat_lib, "Floor");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.056085, 0.057917, 0.072421});
+    // i = mat_get(sc.mat_lib, "Floor");
+    // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.056085, 0.057917, 0.072421});
 
     i = mat_get(sc.mat_lib, "Light");
-    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 5);
+    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 20);
 
+    i = mat_get(sc.mat_lib, "Back");
+    sc.mat_lib->materials[i].root_socket = white_matte;
+    i = mat_get(sc.mat_lib, "Ceiling");
+    sc.mat_lib->materials[i].root_socket = white_matte;
+    i = mat_get(sc.mat_lib, "Floor");
+    sc.mat_lib->materials[i].root_socket = white_matte;
+
+    i = mat_get(sc.mat_lib, "Right");
+    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.163521, 0.800015, 0.122934});
+    i = mat_get(sc.mat_lib, "Left");
+    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.800007, 0.171799, 0.122933});
 
     metal_ctx* ctx = metalInit();
     if (!ctx) { print(ERROR, "init failed\n"); return 1; }
@@ -98,7 +111,7 @@ int main(void) {
     u8* out = malloc(IMG_SIZE);
     for (sz i = 0; i < (sz)(IMG_SIZE); ++i) {
     	f32 p = img[i];
-    	// p = powf(p, 1/2.4f);
+    	p = powf(p, 1/2.4f);
         out[i] = (u8)fmax(fmin(p * 255.0f, 255.0f), 0.0f);
     }
 
