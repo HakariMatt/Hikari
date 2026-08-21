@@ -18,8 +18,8 @@ void display_run(render_args* args) {
 
     Image im = {
         .data = args->img,
-        .width = args->width,
-        .height = args->height,
+        .width = (int)args->width,
+        .height = (int)args->height,
         .mipmaps = 1,
         .format = PIXELFORMAT_UNCOMPRESSED_R32G32B32
     };

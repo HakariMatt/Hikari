@@ -3,8 +3,14 @@
 #include <metal_math>
 #include "../../include/gpu_types.h"
 #include "../../include/settings.h"
+#include "mtl_spectrum.metal"
 using namespace metal;
 using namespace metal::raytracing;
+
+typedef struct {
+	float4 values;
+	float lambda0;
+} light_sample;
 
 typedef struct {
 	float3 point;
@@ -161,15 +167,71 @@ gpu_bsdf_result eval_bsdf(mat_lib lib, int node_idx, thread shading_ctx* ctx) {
 }
 
 
-float3 ray_colour(ray r,
+float random_wavelength(thread uint* rng_state) {
+//	float u = random_f32(rng_state);
+//	return u * (LAMBDA_MAX - LAMBDA_MIN) + LAMBDA_MIN;
+    return mix(LAMBDA_MIN, LAMBDA_MAX, random_f32(rng_state));
+}
+
+float wrap_wavelength(float lambda, float l_min, float l_max) {
+    float range = l_max - l_min;
+    float offset = fmod(lambda - l_min, range);
+    if (offset < 0.0) offset += range;
+    return l_min + offset;
+}
+
+float3 cmf_lookup(float lambda) {
+    if (lambda < 380 || lambda > 780) return float3(0,0,0);
+
+    int floor_index = (int)floor(lambda) - 380;
+    int ceiling_index = (int)ceil(lambda) - 380;
+
+    float3 top = cmfs[ceiling_index];
+    float3 bottom = cmfs[floor_index];
+    float t = lambda - floor(lambda);
+
+    return mix(top, bottom, t);
+}
+
+
+//float3 E_to_D65(float3 xyz) {
+//    float3x3 m = float3x3(
+//        float3( 0.95318743f, -0.03824666f,  0.00260677f),
+//        float3(-0.02659057f,  1.02884062f, -0.00303325f),
+//        float3( 0.02387315f,  0.00940604f,  1.08925647f)
+//    );
+//    return xyz * m;
+//}
+
+float3 E_to_D65(float3 xyz) {
+    float3x3 m = float3x3(
+        float3( 0.95318743f, -0.02659057f,  0.02387315f),
+        float3(-0.03824666f,  1.02884062f,  0.00940604f),
+        float3( 0.00260677f, -0.00303325f,  1.08925647f)
+    );
+    return xyz * m;
+}
+
+float3 xyz_to_srgb(float3 xyz) {
+    float3x3 m = float3x3(
+        float3( 3.2404542f, -1.5371385f, -0.4985314f),
+        float3(-0.9692660f,  1.8760108f,  0.0415560f),
+        float3( 0.0556434f, -0.2040259f,  1.0572252f)
+    );
+    return xyz * m;
+}
+
+
+light_sample trace_path(ray r,
                   acceleration_structure<> accel_struct,
                   device const gpu_v3* normals,
                   device const gpu_tri_attrs* tri_attrs,
                   mat_lib m_lib,
                   thread uint* rng_state)
 {
-    float3 radiance = float3(0,0,0);
-    float3 throughput = float3(1,1,1);
+	float hero_wavelength = random_wavelength(rng_state);
+    light_sample radiance = {float4(0,0,0,0), hero_wavelength};
+    light_sample throughput = {float4(1,1,1,1), hero_wavelength};
 
     intersector<triangle_data> isect;
 
@@ -177,7 +239,8 @@ float3 ray_colour(ray r,
         intersection_result<triangle_data> result = isect.intersect(r, accel_struct);
 
         if (result.type != intersection_type::triangle) {
-            radiance += throughput * sky_colour(r);
+            //radiance += throughput * sky_colour(r);
+            radiance.values += throughput.values * float4(0);
             break;
         }
 
@@ -195,13 +258,16 @@ float3 ray_colour(ray r,
         gpu_mat m = m_lib.materials[attrs.mat_id];
         gpu_bsdf_result bsdf = eval_bsdf(m_lib, m.root_socket, &ctx);
 
-        radiance += throughput * bsdf.emission;
+        float emission = (bsdf.emission.x + bsdf.emission.y + bsdf.emission.z) / 3;
+        float attenuation = (bsdf.attenuation.x + bsdf.attenuation.y + bsdf.attenuation.z) / 3;
+
+        radiance.values += throughput.values * emission;
 
         if (!bsdf.scattered) break;
 
-        throughput *= bsdf.attenuation;
+        throughput.values *= attenuation;
 
-        float p = max(max(throughput.x, throughput.y), throughput.z);
+        float p = max(max(throughput.values.x, throughput.values.y), max(throughput.values.z, throughput.values.w));
         if (p < random_f32(rng_state)) break;
 
         r = ray(ctx.point, bsdf.dir, 1e-4f, INFINITY);
@@ -209,6 +275,7 @@ float3 ray_colour(ray r,
 
     return radiance;
 }
+
 
 kernel void render_sample(  device float* out                          [[buffer(0)]],
                             constant gpu_args& args                    [[buffer(1)]],
@@ -230,7 +297,6 @@ kernel void render_sample(  device float* out                          [[buffer(
       	.sockets = sockets
     };
 
-    //uint rng_state = wellons3((gid.x * 4013 + gid.y * 3307 + sample_num * 5107));
     uint rng_state = hash3(gid.x, gid.y, sample_num);
 
     float3 old_pixel = float3(out[idx+0], out[idx+1], out[idx+2]);
@@ -244,13 +310,30 @@ kernel void render_sample(  device float* out                          [[buffer(
     v += jitter.y;
 
     ray r = camera_get_ray(args.cam, u, v);
-    float3 color = ray_colour(r, accel_struct, normals, tri_attrs, m_lib, &rng_state);
 
-    //color.x = pow(color.x, 1/2.4f);
-    //color.y = pow(color.y, 1/2.4f);
-    //color.z = pow(color.z, 1/2.4f);
 
-    float3 image = old_pixel + ((color - old_pixel) / (sample_num+1));
+    light_sample sample = trace_path(r, accel_struct, normals, tri_attrs, m_lib, &rng_state);
+    float3 colour_sample = 0;
+
+    float3 xyz = {0,0,0};
+    for (int i = 0; i < 4; ++i) {
+        float lambda_i = wrap_wavelength(sample.lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+        float3 cmf = cmf_lookup(lambda_i);
+        float value = 0;
+        switch (i) {
+            case 0: value = sample.values.x; break;
+            case 1: value = sample.values.y; break;
+            case 2: value = sample.values.z; break;
+            case 3: value = sample.values.w; break;
+        }
+        xyz += cmf * value;
+    }
+
+    xyz *= ((LAMBDA_BAR / 4.0) * CMF_NORM_K);
+
+    colour_sample = xyz_to_srgb(E_to_D65(xyz));
+
+    float3 image = old_pixel + ((colour_sample - old_pixel) / (sample_num+1));
     out[idx + 0] = image.x;
     out[idx + 1] = image.y;
     out[idx + 2] = image.z;
