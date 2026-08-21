@@ -11,7 +11,6 @@
 #include "../include/types.h"
 #include "../include/camera.h"
 #include "../include/scene.h"
-#include "../include/bvh.h"
 #include "../include/log.h"
 #include "../include/mat.h"
 
@@ -64,6 +63,7 @@ int main(int argc, char* argv[]) {
     sz i = 0;
     int white_matte = mat_node_diffuse(&m_lib, (v3){1,1,1});
 
+    // Hikari materials
     i = mat_get(sc.mat_lib, "Halo");
     sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 1);
     // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.000000, 0.954206, 1.000000});
@@ -125,12 +125,14 @@ int main(int argc, char* argv[]) {
     // converting to 8bit rgb image
 	u8* outimg = malloc(IMG_SIZE);
 	for (sz i = 0; i < IMG_SIZE; ++i) {
-		outimg[i] = (u8)fmax(fmin(img[i] * 255.0, 255.0), 0.0);
+		f32 p = img[i];
+		p = powf(p, 1/2.4);
+		outimg[i] = (u8)fmax(fmin(p * 255.0, 255.0), 0.0);
 	}
 
 	// writing image to file
 	char filename[128];
-	sprintf(filename, "hikari_%s_%dx%d_%d.ppm", backend->name, WIDTH, HEIGHT, N_SAMPLES);
+	sprintf(filename, "renders/hikari_%s_%dx%d_%d.ppm", backend->name, WIDTH, HEIGHT, N_SAMPLES);
     FILE* f = fopen(filename, "wb");
     if (!f) print(ERROR, "Couldn't open file");
 

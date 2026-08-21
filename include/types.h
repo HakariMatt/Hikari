@@ -17,6 +17,7 @@ typedef double   f64;
 typedef size_t    sz;
 
 typedef struct { f64 x, y, z; } v3;
+typedef struct { f64 x, y, z, w; } v4;
 typedef struct { v3 origin, dir; } ray;
 
 typedef struct {

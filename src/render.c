@@ -11,6 +11,7 @@
 #include "../include/camera.h"
 #include "../include/bvh.h"
 #include "../include/colour.h"
+#include "../include/spectrum.h"
 #include "../include/render.h"
 #include "../include/log.h"
 #include "../include/mat.h"
@@ -32,6 +33,11 @@ const render_backend cpu_backend_ops = {
 	.shutdown = cpu_backend_shutdown,
 };
 
+static f64 random_wavelength(u32* state) {
+	f64 u = random_f64(state);
+	return u * (LAMBDA_MAX - LAMBDA_MIN) + LAMBDA_MIN;
+}
+
 static colour sky_colour(ray r) {
 	v3 unit_dir = v3_norm(r.dir);
     f64 a = 0.5 * (unit_dir.z + 1.0);
@@ -41,61 +47,76 @@ static colour sky_colour(ray r) {
     // return (colour){0,0,0};
 }
 
-static colour ray_color(ray r, scene* sc, sz depth, u32* rng_state) {
 
-	if (depth >= MAX_BOUNCES) {
-		return (colour){0,0,0};
-	}
-
-	hit_result hr;
-	hit_result best_h = {.hit = 0};
-	sz best_obj = -1;
-	f64 closest = INFINITY;
-
-	for (sz i = 0; i < sc->obj_count; ++i) {
-		if (!hit_bbox(r, sc->objects[i].bbox)) continue;
-
-		hr = bvh_hit(sc->objects[i].bvh, sc->objects[i].mesh, r, closest);
-
-		if (hr.hit && hr.t < closest) {
-			closest = hr.t;
-			best_h = hr;
-			best_obj = i;
-		}
-	}
-
-	if (!best_h.hit) return sky_colour(r);
-
-
-	// f64 roughness = 0.2;
-
-	shading_ctx ctx = {
-		.point = ray_at(r, best_h.t),
-		.normal = best_h.normal,
-		.true_normal = best_h.true_normal,
-		.r = r,
-		.rng_state = rng_state
-	};
-
-	mat m = sc->mat_lib->materials[best_h.mat_id];
-	bsdf_result bsdf = eval_bsdf(sc->mat_lib, m.root_socket, &ctx);
-	if (!bsdf.scattered) return v3_to_colour(bsdf.emission);
-	// if (!bsdf.scattered) return (colour){1,0,0};
-
-	// v3 bounce_dir = v3_norm(v3_add(best_h.normal, v3_random(rng_state)));
-	// v3 bounce_dir = v3_norm( v3_add( v3_add( best_h.normal, random_dir() ), v3_scale( v3_reflect( r.dir, best_h.normal ), 1-roughness )));
-
-	ray new_r = {v3_add(ctx.point, v3_scale(best_h.normal, 1e-7)), bsdf.dir};
-
-    colour incoming = ray_color(new_r, sc, depth+1, rng_state);
-
-    // TODO: implement random early exit somehow
-    f64 p = fmax(incoming.r, fmax(incoming.g, incoming.b));
-    if (random_f64(rng_state) >= p) return incoming;
-
-    return colour_multiply(incoming, v3_to_colour(bsdf.attenuation));
-    // return incoming;
+static inline f64 wrap_wavelength(f64 lambda, f64 l_min, f64 l_max) {
+	f64 range = l_max - l_min;
+	f64 offset = fmod(lambda - l_min, range);
+	if (offset < 0.0) offset += range;
+	return l_min + offset;
 }
+
+
+static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
+
+	f64 hero_wavelength = random_wavelength(rng_state);
+	light_sample radiance = { {0,0,0,0}, hero_wavelength };
+	light_sample throughput = { {1,1,1,1}, hero_wavelength };
+
+	for (sz depth = 0; depth < MAX_BOUNCES; ++depth) {
+		hit_result hr;
+		hit_result best_h = {.hit = 0};
+		sz best_obj = -1;
+		f64 closest = INFINITY;
+
+		for (sz i = 0; i < sc->obj_count; ++i) {
+			if (!hit_bbox(r, sc->objects[i].bbox)) continue;
+
+			hr = bvh_hit(sc->objects[i].bvh, sc->objects[i].mesh, r, closest);
+
+			if (hr.hit && hr.t < closest) {
+				closest = hr.t;
+				best_h = hr;
+				best_obj = i;
+			}
+		}
+
+		if (!best_h.hit) {
+			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 0));
+			break;
+		}
+
+		shading_ctx ctx = {
+			.point = ray_at(r, best_h.t),
+			.normal = best_h.normal,
+			.true_normal = best_h.true_normal,
+			.r = r,
+			.rng_state = rng_state
+		};
+
+		mat m = sc->mat_lib->materials[best_h.mat_id];
+		bsdf_result bsdf = eval_bsdf(sc->mat_lib, m.root_socket, &ctx);
+
+		// temporary values, for testing
+		f64 emission = (bsdf.emission.x + bsdf.emission.y + bsdf.emission.z) / 3;
+		f64 attenuation = (bsdf.attenuation.x + bsdf.attenuation.y + bsdf.attenuation.z) / 3;
+
+		radiance.value = v4_add(radiance.value, v4_scale(throughput.value, emission));
+		if (!bsdf.scattered) break;
+
+		throughput.value = v4_scale(throughput.value, attenuation);
+
+		f64 p = fmax(fmax(throughput.value.x, throughput.value.y), fmax(throughput.value.z, throughput.value.w));
+		if (p < random_f64(rng_state)) break;
+
+		r = (ray) {
+			.origin = v3_add(ctx.point, v3_scale(best_h.normal, 1e-7)),
+			.dir = bsdf.dir
+		};
+	}
+
+	return radiance;
+}
+
 
 void render_progressive(render_args* args) {
 	#define STOPWATCH(x) clock_gettime(CLOCK_MONOTONIC, &(x))
@@ -141,13 +162,32 @@ void render_progressive(render_args* args) {
 				u += jitter.x;
 				v += jitter.y;
 
-				colour total_light = {0};
 
 				ray r = camera_get_ray(cam, u, v);
-				colour sample = colour_add(total_light, ray_color(r, sc, 1, &rng_state));
-				total_light = sample;
 
-				colour pixel = colour_add(old_px, colour_divide(colour_sub(total_light, old_px), (colour){s+1,s+1,s+1}));
+				light_sample sample = trace_path(r, sc, &rng_state);
+
+				colour colour_sample = {0};
+
+				v3 xyz = {0,0,0};
+				for (int i = 0; i < 4; ++i) {
+					f64 lambda_i = wrap_wavelength(sample.lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+					v3 cmf = cmf_lookup(lambda_i);
+					f64 value = 0;
+					switch (i) {
+						case 0: value = sample.value.x; break;
+						case 1: value = sample.value.y; break;
+						case 2: value = sample.value.z; break;
+						case 3: value = sample.value.w; break;
+					}
+					xyz = v3_add(xyz, v3_scale(cmf, value));
+				}
+
+				xyz = v3_scale(xyz, (LAMBDA_BAR / 4.0) * CMF_NORM_K);
+
+				colour_sample = v3_to_colour(xyz_to_srgb(E_to_D65(xyz)));
+
+				colour pixel = colour_add(old_px, colour_divide(colour_sub(colour_sample, old_px), (colour){s+1,s+1,s+1}));
 				img[idx + 0] = pixel.r;
 				img[idx + 1] = pixel.g;
 				img[idx + 2] = pixel.b;

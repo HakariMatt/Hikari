@@ -95,7 +95,7 @@ float3 ray_at(ray r, float t) {
 }
 
 float3 sky_colour(ray r) {
-	return float3(0.051);
+	return float3(0);
 	float a = 0.5 * (r.direction.z + 1.0);
     float3 white = float3(1.0, 1.0, 1.0);
     float3 blue  = float3(0.3, 0.5, 1.0);
@@ -147,13 +147,6 @@ gpu_bsdf_result eval_bsdf(mat_lib lib, int node_idx, thread shading_ctx* ctx) {
 			float3 colour = eval_value(lib, n.input_start, ctx).v3;
 			float pdf = 1;
 			float3 dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
-			//if (dot(dir, ctx->true_normal) <= 0) dir = ctx->normal;
-
-			//float3 dir;
-
-			//do {
-   // 			dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
-			//} while (dot(dir, ctx->true_normal) <= 0.0);
 
 			return (gpu_bsdf_result){ .attenuation = colour, .dir = dir, .scattered = 1 };
 		}
