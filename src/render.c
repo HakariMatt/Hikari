@@ -48,14 +48,6 @@ static colour sky_colour(ray r) {
 }
 
 
-static inline f64 wrap_wavelength(f64 lambda, f64 l_min, f64 l_max) {
-	f64 range = l_max - l_min;
-	f64 offset = fmod(lambda - l_min, range);
-	if (offset < 0.0) offset += range;
-	return l_min + offset;
-}
-
-
 static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 
 	f64 hero_wavelength = random_wavelength(rng_state);
@@ -81,7 +73,7 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 		}
 
 		if (!best_h.hit) {
-			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 0));
+			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 1));
 			break;
 		}
 
@@ -90,23 +82,24 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 			.normal = best_h.normal,
 			.true_normal = best_h.true_normal,
 			.r = r,
+			.lambda0 = hero_wavelength,
 			.rng_state = rng_state
 		};
 
 		mat m = sc->mat_lib->materials[best_h.mat_id];
-		bsdf_result bsdf = eval_bsdf(sc->mat_lib, m.root_socket, &ctx);
+		bsdf_result bsdf = eval_bsdf(sc->mat_lib, sc->spec_model, m.root_socket, &ctx);
 
-		// temporary values, for testing
-		f64 emission = (bsdf.emission.x + bsdf.emission.y + bsdf.emission.z) / 3;
-		f64 attenuation = (bsdf.attenuation.x + bsdf.attenuation.y + bsdf.attenuation.z) / 3;
-
-		radiance.value = v4_add(radiance.value, v4_scale(throughput.value, emission));
+		radiance.value = v4_add(radiance.value, v4_mul(throughput.value, bsdf.emission));
 		if (!bsdf.scattered) break;
 
-		throughput.value = v4_scale(throughput.value, attenuation);
+		throughput.value = v4_mul(throughput.value, bsdf.attenuation);
 
 		f64 p = fmax(fmax(throughput.value.x, throughput.value.y), fmax(throughput.value.z, throughput.value.w));
-		if (p < random_f64(rng_state)) break;
+		p = fmin(p, 1.0);
+		if (depth > MIN_RR_DEPTH) {
+			if (random_f64(rng_state) > p) break;
+			throughput.value = v4_scale(throughput.value, 1.0 / p);
+		}
 
 		r = (ray) {
 			.origin = v3_add(ctx.point, v3_scale(best_h.normal, 1e-7)),

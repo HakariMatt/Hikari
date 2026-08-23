@@ -4,6 +4,8 @@
 #include "../include/mat.h"
 #include "../include/v3.h"
 #include "../include/log.h"
+#include "../include/spectrum.h"
+#include "../include/settings.h"
 
 
 v3 sample_cosine_hemisphere(v3 n, f64 *pdf_out, u32* rng_state) {
@@ -34,22 +36,25 @@ mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx) {
 	// and do all the ctx shenanigans
 }
 
-bsdf_result eval_bsdf(mat_lib* lib, i32 node_idx, shading_ctx* ctx) {
+bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx) {
 	if (node_idx == -1) return (bsdf_result){0};
 	mat_node* n = &lib->nodes[node_idx];
 
 	switch (n->type) {
 		case NODE_DIFFUSE: {
-			v3 colour = eval_value(lib, n->input_start, ctx).v3;
+			v3 rgb = eval_value(lib, n->input_start, ctx).v3;
+			v4 attenuation = spectral_upsample(spec_model, rgb, ctx->lambda0);
+
 			f64 pdf = 0;
 			v3 dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
 			if (v3_dot(dir, ctx->true_normal) <= 0) dir = ctx->normal;
-			return (bsdf_result){ .attenuation = colour, .dir = dir, .scattered = 1 };
+			return (bsdf_result){ .attenuation = attenuation, .dir = dir, .scattered = 1 };
 		}
 		case NODE_EMISSION: {
-			v3 colour    = eval_value(lib, n->input_start + 0, ctx).v3;
+			v3 rgb = eval_value(lib, n->input_start + 0, ctx).v3;
+			v4 emission = spectral_upsample(spec_model, rgb, ctx->lambda0);
 			f64 strength = eval_value(lib, n->input_start + 1, ctx).value;
-			return (bsdf_result){ .emission = v3_scale(colour, strength), .scattered = 0 };
+			return (bsdf_result){ .emission = v4_scale(emission, strength), .scattered = 0 };
 		}
 		default:
 			return (bsdf_result){0};

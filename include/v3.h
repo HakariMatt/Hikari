@@ -37,6 +37,7 @@ static inline void build_onb(v3 n, v3 *tangent, v3 *bitangent) {
 }
 
 static inline v4 v4_add(v4 a, v4 b) { return (v4){a.x+b.x, a.y+b.y, a.z+b.z, a.w+b.w}; }
+static inline v4 v4_mul(v4 a, v4 b) { return (v4){a.x*b.x, a.y*b.y, a.z*b.z, a.w*b.w}; }
 static inline v4 v4_scale(v4 a, f64 s) { return (v4){a.x*s, a.y*s, a.z*s, a.w*s}; }
 
 #endif

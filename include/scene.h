@@ -9,6 +9,7 @@ typedef struct {
 	sz obj_count;
     sz obj_cap;
     mat_lib* mat_lib;
+    RGB2Spec* spec_model;
 } scene;
 
 void scene_load_obj(scene* scene, char* filepath);

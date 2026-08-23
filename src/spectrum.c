@@ -1,7 +1,35 @@
 #include "../include/spectrum.h"
+#include "../include/settings.h"
+#include <math.h>
 
 
+v4 spectral_upsample(RGB2Spec* model, v3 rgb, f64 lambda0) {
+	f32 rgb_arr[3] = {rgb.x, rgb.y, rgb.z};
+	f32 coefs[RGB2SPEC_N_COEFFS];
+	rgb2spec_fetch(model, rgb_arr, coefs);
 
+	v4 response;
+
+	for (int i = 0; i < 4; ++i) {
+		f64 lambda_i = wrap_wavelength(lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+		f32 value = rgb2spec_eval_precise(coefs, lambda_i);
+		switch (i) {
+			case 0: response.x = value; break;
+			case 1: response.y = value; break;
+			case 2: response.z = value; break;
+			case 3: response.w = value; break;
+		}
+	}
+
+	return response;
+}
+
+f64 wrap_wavelength(f64 lambda, f64 l_min, f64 l_max) {
+	f64 range = l_max - l_min;
+	f64 offset = fmod(lambda - l_min, range);
+	if (offset < 0.0) offset += range;
+	return l_min + offset;
+}
 
 const cmf_xyz cmfs[401] = {
 	{0.001368000000f, 0.0000390000000f, 0.006450001000f },

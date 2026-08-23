@@ -1,6 +1,7 @@
 #ifndef _MAT_H
 #define _MAT_H
 
+#include "../rgb2spec/rgb2spec.h"
 #include "types.h"
 #include "colour.h"
 
@@ -28,13 +29,14 @@ typedef struct {
 	ray r;
 	v3 normal;
 	v3 true_normal;
+	f64 lambda0;
 	u32* rng_state;
 } shading_ctx;
 
 typedef struct {
 	v3 dir;
-	v3 attenuation;
-	v3 emission;
+	v4 attenuation;
+	v4 emission;
 	int scattered;
 } bsdf_result;
 
@@ -79,7 +81,7 @@ typedef struct {
 
 
 mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx);
-bsdf_result eval_bsdf(mat_lib* lib, i32 node_idx, shading_ctx* ctx);
+bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx);
 int mat_get(mat_lib* lib, const char* name);
 int mat_create(mat_lib* lib, char* name);
 i32 mat_node_diffuse(mat_lib* lib, v3 colour);

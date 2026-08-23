@@ -13,6 +13,7 @@
 #include "../include/scene.h"
 #include "../include/log.h"
 #include "../include/mat.h"
+#include "../rgb2spec/rgb2spec.h"
 
 #include "../include/render_backend.h"
 #ifdef HIKARI_METAL
@@ -47,11 +48,18 @@ int main(int argc, char* argv[]) {
 	#endif
 		print(INFO, "Using %s backend", backend->name);
 
+	RGB2Spec* spec_model = rgb2spec_load("assets/luts/lut.bin");
+	if (!spec_model) {
+		print(ERROR, "Could not load model");
+		return 1;
+	}
+
 	// scene setup
 	scene sc = {0};
 
 	mat_lib m_lib = {0};
 	sc.mat_lib = &m_lib;
+	sc.spec_model = spec_model;
 
 	scene_load_obj(&sc, "assets/models/Hikari_in_cornell_box.obj");
 
@@ -84,7 +92,7 @@ int main(int argc, char* argv[]) {
     // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.056085, 0.057917, 0.072421});
 
     i = mat_get(sc.mat_lib, "Light");
-    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 20);
+    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 5);
 
     i = mat_get(sc.mat_lib, "Back");
     sc.mat_lib->materials[i].root_socket = white_matte;
@@ -126,7 +134,8 @@ int main(int argc, char* argv[]) {
 	u8* outimg = malloc(IMG_SIZE);
 	for (sz i = 0; i < IMG_SIZE; ++i) {
 		f32 p = img[i];
-		p = powf(p, 1/2.4);
+		if (p <= 0.0031308) p *= 12.92f;
+		else p = 1.055 * powf(p, 1/2.4) - 0.055;
 		outimg[i] = (u8)fmax(fmin(p * 255.0, 255.0), 0.0);
 	}
 
@@ -146,6 +155,7 @@ int main(int argc, char* argv[]) {
     scene_free(&sc);
     free(img);
     free(outimg);
+    rgb2spec_free(spec_model);
 
     return 0;
 }
