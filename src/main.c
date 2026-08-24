@@ -88,11 +88,14 @@ int main(int argc, char* argv[]) {
     i = mat_get(sc.mat_lib, "CH0242_Face");
     sc.mat_lib->materials[i].root_socket = white_matte;
 
+    i = mat_get(sc.mat_lib, "CH0242_Eyebrow");
+    sc.mat_lib->materials[i].root_socket = white_matte;
+
     // i = mat_get(sc.mat_lib, "Floor");
     // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.056085, 0.057917, 0.072421});
 
     i = mat_get(sc.mat_lib, "Light");
-    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 5);
+    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 10);
 
     i = mat_get(sc.mat_lib, "Back");
     sc.mat_lib->materials[i].root_socket = white_matte;
@@ -115,7 +118,7 @@ int main(int argc, char* argv[]) {
     render_args rargs = {
 		.img = img, .width = WIDTH, .height = HEIGHT,
 		.cam = cam, .scene = sc, .state = &rs,
-		.ctx = NULL, .backend = backend
+		.ctx = NULL, .backend = backend, .lut_res = spec_model->res
 	};
 
     if (backend->init(&rargs) != 0) {

@@ -1,6 +1,6 @@
 CC = clang
 
-COMMON_CFLAGS = -Wall -Wextra -Iinclude -MMD -MP
+COMMON_CFLAGS = -Wall -Wextra -Iinclude -Irgb2spec -MMD -MP
 
 CPU_CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
 
@@ -18,11 +18,15 @@ metal_lib    = $(shaders_dir)/shader.metallib
 obj_cpu_dir = obj/cpu
 obj_mtl_dir = obj/mtl
 
+rgb2spec_dir = rgb2spec
+rgb2spec_sources = $(wildcard $(rgb2spec_dir)/*.c)
 cpu_sources = $(wildcard src/*.c)
 mtl_sources = $(wildcard src/*.c)
 
-cpu_objects = $(patsubst src/%.c, $(obj_cpu_dir)/%.o, $(cpu_sources))
-mtl_objects = $(patsubst src/%.c, $(obj_mtl_dir)/%.o, $(mtl_sources))
+cpu_objects = $(patsubst src/%.c,$(obj_cpu_dir)/%.o,$(cpu_sources)) \
+              $(patsubst $(rgb2spec_dir)/%.c,$(obj_cpu_dir)/%.o,$(rgb2spec_sources))
+mtl_objects = $(patsubst src/%.c,$(obj_mtl_dir)/%.o,$(mtl_sources)) \
+              $(patsubst $(rgb2spec_dir)/%.c,$(obj_mtl_dir)/%.o,$(rgb2spec_sources))
 
 .PHONY: all cpu metal clean
 
@@ -37,9 +41,11 @@ $(target_cpu): $(cpu_objects)
 $(obj_cpu_dir)/%.o: src/%.c | $(obj_cpu_dir)
 	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -c $< -o $@
 
+$(obj_cpu_dir)/%.o: $(rgb2spec_dir)/%.c | $(obj_cpu_dir)
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -c $< -o $@
+
 $(obj_cpu_dir):
 	mkdir -p $@
-
 
 metal: $(target_mtl) $(metal_lib)
 
@@ -48,6 +54,9 @@ $(target_mtl): $(mtl_objects) $(obj_mtl_dir)/metal_backend.o
 		-framework Metal -framework Foundation -framework QuartzCore -lobjc
 
 $(obj_mtl_dir)/%.o: src/%.c | $(obj_mtl_dir)
+	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -DHIKARI_METAL -c $< -o $@
+
+$(obj_mtl_dir)/%.o: $(rgb2spec_dir)/%.c | $(obj_mtl_dir)
 	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) -DHIKARI_METAL -c $< -o $@
 
 $(obj_mtl_dir)/metal_backend.o: $(obj_c_dir)/metal_backend.m include/metal_backend.h | $(obj_mtl_dir)

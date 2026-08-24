@@ -3,8 +3,10 @@
 
 #ifdef __METAL_VERSION__
     typedef packed_float3 gpu_v3;
+    typedef packed_float4 gpu_v4;
 #else
     typedef struct { float x, y, z; } gpu_v3;
+    typedef struct { float x, y, z, w; } gpu_v4;
 #endif
 
 typedef enum {
@@ -28,8 +30,8 @@ typedef union {
 
 typedef struct {
 	gpu_v3 dir;
-	gpu_v3 attenuation;
-	gpu_v3 emission;
+	gpu_v4 attenuation;
+	gpu_v4 emission;
 	int scattered;
 } gpu_bsdf_result;
 
@@ -61,6 +63,7 @@ typedef struct {
 typedef struct {
   const unsigned int width, height;
   gpu_camera cam;
+  const unsigned int lut_res;
 } gpu_args;
 
 typedef struct {

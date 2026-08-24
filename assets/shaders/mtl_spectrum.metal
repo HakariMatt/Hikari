@@ -1,3 +1,131 @@
+#ifndef _MTL_SPECTRUM_H
+#define _MTL_SPECTRUM_H
+
+#include <metal_stdlib>
+using namespace metal;
+
+#include "../../include/settings.h"
+
+#define RGB2SPEC_N_COEFFS 3
+
+struct RGB2Spec {
+    uint res;
+    device const float* data;
+    device const float* scale;
+};
+
+static int rgb2spec_find_interval(device const float* values, int size_, float x) {
+    int left = 0;
+    int last_interval = size_ - 2;
+    int size = last_interval;
+
+    while (size > 0) {
+        int _half   = size >> 1;
+        int middle = left + _half + 1;
+
+        if (values[middle] <= x) {
+            left = middle;
+            size -= _half + 1;
+        } else {
+            size = _half;
+        }
+    }
+
+    return min(left, last_interval);
+}
+
+static bool rgb2spec_fetch_mono(float3 rgb, thread float3& out) {
+    if (rgb.x != rgb.y || rgb.y != rgb.z)
+        return false;
+
+    float v = rgb.x, r;
+    if (v <= 0.0f)
+        r = -8192.0f;
+    else if (v >= 1.0f)
+        r = 8192.0f;
+    else
+        r = (v - 0.5f) / sqrt(v * (1.0f - v));
+
+    out = float3(0.0f, 0.0f, r);
+    return true;
+}
+
+float3 rgb2spec_fetch(RGB2Spec model, float3 rgb_) {
+    int res = int(model.res);
+    float3 rgb = clamp(rgb_, 0.0f, 1.0f);
+
+    float3 out;
+    if (rgb2spec_fetch_mono(rgb, out))
+        return out;
+
+    int i = 0;
+    if (rgb[1] >= rgb[i]) i = 1;
+    if (rgb[2] >= rgb[i]) i = 2;
+
+    float z = rgb[i];
+
+    if (z <= 0.0f) {
+        return float3(model.data[0], model.data[1], model.data[2]);
+    }
+
+    float scl = float(res - 1) / z;
+    float x = rgb[(i + 1) % 3] * scl;
+    float y = rgb[(i + 2) % 3] * scl;
+
+    uint xi = min(uint(x), uint(res - 2));
+    uint yi = min(uint(y), uint(res - 2));
+    uint zi = uint(rgb2spec_find_interval(model.scale, res, z));
+
+    uint offset = (((uint(i) * uint(res) + zi) * uint(res) + yi) * uint(res) + xi) * RGB2SPEC_N_COEFFS;
+    uint dx = RGB2SPEC_N_COEFFS;
+    uint dy = RGB2SPEC_N_COEFFS * uint(res);
+    uint dz = RGB2SPEC_N_COEFFS * uint(res) * uint(res);
+
+    float x1 = x - float(xi), x0 = 1.0f - x1;
+    float y1 = y - float(yi), y0 = 1.0f - y1;
+    float z1 = (z - model.scale[zi]) / (model.scale[zi + 1] - model.scale[zi]);
+    float z0 = 1.0f - z1;
+
+    float3 result;
+    for (int j = 0; j < RGB2SPEC_N_COEFFS; ++j) {
+        result[j] = ((model.data[offset] * x0 + model.data[offset + dx] * x1) * y0 + (model.data[offset + dy] * x0 + model.data[offset + dy + dx] * x1) * y1) * z0 + ((model.data[offset + dz] * x0 + model.data[offset + dz + dx] * x1) * y0 + (model.data[offset + dz + dy] * x0 + model.data[offset + dz + dy + dx] * x1) * y1) * z1;
+        offset++;
+    }
+
+    return result;
+}
+
+float wrap_wavelength(float lambda, float l_min, float l_max) {
+    float range = l_max - l_min;
+    float offset = fmod(lambda - l_min, range);
+    if (offset < 0.0) offset += range;
+    return l_min + offset;
+}
+
+float rgb2spec_eval_precise(float3 coeffs, float lambda) {
+    float x = fma(fma(coeffs.x, lambda, coeffs.y), lambda, coeffs.z),
+          y = rsqrt(fma(x, x, 1.f));
+    return fma(.5f * x, y, .5f);
+}
+
+float4 spectral_upsample(RGB2Spec model, float3 rgb, float lambda0) {
+	float3 coefs = rgb2spec_fetch(model, rgb);
+
+	float4 response;
+
+	for (int i = 0; i < 4; ++i) {
+		float lambda_i = wrap_wavelength(lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+		float value = rgb2spec_eval_precise(coefs, lambda_i);
+		switch (i) {
+			case 0: response.x = value; break;
+			case 1: response.y = value; break;
+			case 2: response.z = value; break;
+			case 3: response.w = value; break;
+		}
+	}
+
+	return response;
+}
 
 constant float3 cmfs[401] = {
 	{0.001368000000f, 0.0000390000000f, 0.006450001000f },
@@ -402,3 +530,5 @@ constant float3 cmfs[401] = {
 	{0.000044485670f, 0.0000160645900f, 0.000000000000f },
 	{0.000041509940f, 0.0000149900000f, 0.000000000000f },
 };
+
+#endif

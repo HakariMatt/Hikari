@@ -2,7 +2,7 @@
 #include <metal_raytracing>
 #include <metal_math>
 #include "../../include/gpu_types.h"
-#include "../../include/settings.h"
+//#include "../../include/settings.h"
 #include "mtl_spectrum.metal"
 using namespace metal;
 using namespace metal::raytracing;
@@ -17,6 +17,8 @@ typedef struct {
 	ray r;
 	float3 normal;
 	float3 true_normal;
+	float lambda0;
+	RGB2Spec model;
 	thread uint* rng_state;
 } shading_ctx;
 
@@ -150,16 +152,18 @@ gpu_bsdf_result eval_bsdf(mat_lib lib, int node_idx, thread shading_ctx* ctx) {
 
 	switch (n.type) {
 		case GPU_NODE_DIFFUSE: {
-			float3 colour = eval_value(lib, n.input_start, ctx).v3;
+			float3 rgb = eval_value(lib, n.input_start, ctx).v3;
+			float4 attenuation = spectral_upsample(ctx->model, rgb, ctx->lambda0);
 			float pdf = 1;
 			float3 dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
 
-			return (gpu_bsdf_result){ .attenuation = colour, .dir = dir, .scattered = 1 };
+			return (gpu_bsdf_result){ .attenuation = attenuation, .dir = dir, .scattered = 1 };
 		}
 		case GPU_NODE_EMISSION: {
-			float3 colour    = eval_value(lib, n.input_start + 0, ctx).v3;
+			float3 rgb = eval_value(lib, n.input_start + 0, ctx).v3;
+			float4 emission = spectral_upsample(ctx->model, rgb, ctx->lambda0);
 			float strength = eval_value(lib, n.input_start + 1, ctx).value;
-			return (gpu_bsdf_result){ .emission = colour * strength, .scattered = 0 };
+			return (gpu_bsdf_result){ .emission = emission * strength, .scattered = 0 };
 		}
 		default:
 			return (gpu_bsdf_result){0};
@@ -171,13 +175,6 @@ float random_wavelength(thread uint* rng_state) {
 //	float u = random_f32(rng_state);
 //	return u * (LAMBDA_MAX - LAMBDA_MIN) + LAMBDA_MIN;
     return mix(LAMBDA_MIN, LAMBDA_MAX, random_f32(rng_state));
-}
-
-float wrap_wavelength(float lambda, float l_min, float l_max) {
-    float range = l_max - l_min;
-    float offset = fmod(lambda - l_min, range);
-    if (offset < 0.0) offset += range;
-    return l_min + offset;
 }
 
 float3 cmf_lookup(float lambda) {
@@ -227,6 +224,7 @@ light_sample trace_path(ray r,
                   device const gpu_v3* normals,
                   device const gpu_tri_attrs* tri_attrs,
                   mat_lib m_lib,
+                  RGB2Spec model,
                   thread uint* rng_state)
 {
 	float hero_wavelength = random_wavelength(rng_state);
@@ -252,20 +250,19 @@ light_sample trace_path(ray r,
             .r = r,
             .normal = normal,
             .true_normal = attrs.true_normal,
+            .lambda0 = hero_wavelength,
+            .model = model,
             .rng_state = rng_state
         };
 
         gpu_mat m = m_lib.materials[attrs.mat_id];
         gpu_bsdf_result bsdf = eval_bsdf(m_lib, m.root_socket, &ctx);
 
-        float emission = (bsdf.emission.x + bsdf.emission.y + bsdf.emission.z) / 3;
-        float attenuation = (bsdf.attenuation.x + bsdf.attenuation.y + bsdf.attenuation.z) / 3;
-
-        radiance.values += throughput.values * emission;
+        radiance.values += throughput.values * bsdf.emission;
 
         if (!bsdf.scattered) break;
 
-        throughput.values *= attenuation;
+        throughput.values *= bsdf.attenuation;
 
         float p = max(max(throughput.values.x, throughput.values.y), max(throughput.values.z, throughput.values.w));
         if (p < random_f32(rng_state)) break;
@@ -286,6 +283,8 @@ kernel void render_sample(  device float* out                          [[buffer(
                             device const gpu_mat* materials            [[buffer(6)]],
                             device const gpu_mat_node* nodes           [[buffer(7)]],
                             device const gpu_mat_node_socket* sockets  [[buffer(8)]],
+                            device const float* lut_data               [[buffer(9)]],
+                            device const float* lut_scale              [[buffer(10)]],
                             uint2 gid                                  [[thread_position_in_grid]])
 {
     if (gid.x >= args.width || gid.y >= args.height) return;
@@ -295,6 +294,12 @@ kernel void render_sample(  device float* out                          [[buffer(
     	.materials = materials,
      	.nodes = nodes,
       	.sockets = sockets
+    };
+
+    RGB2Spec model = {
+    	.res = args.lut_res,
+     	.data = lut_data,
+      	.scale = lut_scale
     };
 
     uint rng_state = hash3(gid.x, gid.y, sample_num);
@@ -312,7 +317,7 @@ kernel void render_sample(  device float* out                          [[buffer(
     ray r = camera_get_ray(args.cam, u, v);
 
 
-    light_sample sample = trace_path(r, accel_struct, normals, tri_attrs, m_lib, &rng_state);
+    light_sample sample = trace_path(r, accel_struct, normals, tri_attrs, m_lib, model, &rng_state);
     float3 colour_sample = 0;
 
     float3 xyz = {0,0,0};

@@ -20,6 +20,7 @@ typedef struct {
     render_state* state;
     void* ctx;
     struct render_backend* backend;
+    u32 lut_res;
 } render_args;
 
 struct render_backend {
