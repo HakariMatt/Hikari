@@ -245,6 +245,11 @@ light_sample trace_path(ray r,
         gpu_tri_attrs attrs = tri_attrs[result.primitive_id];
         float3 normal = get_normal(result, normals, attrs);
 
+        if (dot(r.direction, attrs.true_normal) > 0) {
+        	r = ray(ray_at(r, result.distance) + (normal * 1e-4f), r.direction, 1e-4f, INFINITY);
+         	continue;
+        }
+
         shading_ctx ctx = {
             .point = ray_at(r, result.distance) + (normal * 1e-4f),
             .r = r,
