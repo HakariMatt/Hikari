@@ -177,3 +177,55 @@ void scene_free(scene* sc) {
 		free(sc->objects[i].mesh.tris);
 	}
 }
+
+static void emission_list_push(emission_list* list, mesh m, sz tri_id, sz obj_id) {
+	if (list->count >= list->cap) {
+		if (list->cap == 0) list->cap = 32;
+		list->cap *= 2;
+		list->tris = realloc(list->tris, list->cap * sizeof(emission_tris));
+	}
+
+	tri t = m.tris[tri_id];
+
+	v3 v0 = m.verts[(int)t.verts_idx.x];
+	v3 v1 = m.verts[(int)t.verts_idx.y];
+	v3 v2 = m.verts[(int)t.verts_idx.z];
+
+	f64 area = 0.5 * v3_len(v3_cross(v3_sub(v1, v0), v3_sub(v2, v0)));
+
+	emission_tris tri = {
+		.tri_id = tri_id,
+		.obj_id = obj_id,
+		.area = area,
+		.cum_area = list->total_area + area
+	};
+
+	list->total_area += area;
+
+	list->tris[list->count] = tri;
+	list->count++;
+}
+
+static int is_emissive(mat_lib* lib, sz mat_id) {
+	if (!lib) return 0;
+
+	mat m = lib->materials[mat_id];
+	if (m.root_socket == -1) return 0;
+	mat_node n = lib->nodes[m.root_socket];
+	if (n.type == NODE_EMISSION) return 1;
+
+	return 0;
+}
+
+void build_emission_list(scene* sc) {
+	if (!sc) return;
+
+	for (sz o = 0; o < sc->obj_count; ++o) {
+		mesh m = sc->objects[o].mesh;
+
+		for (sz t = 0; t < m.ntris; ++t) {
+			if (is_emissive(sc->mat_lib, m.tris[t].mat_id))
+				emission_list_push(sc->emission_list, m, t, o);
+		}
+	}
+}

@@ -113,6 +113,10 @@ int main(int argc, char* argv[]) {
     f32* img = malloc(IMG_SIZE*sizeof(f32));
     memset(img, 0, IMG_SIZE);
 
+    emission_list list = {0};
+    sc.emission_list = &list;
+    build_emission_list(&sc);
+
     // rendering
     render_state rs = {0};
     render_args rargs = {
