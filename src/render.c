@@ -47,6 +47,58 @@ static colour sky_colour(ray r) {
     // return (colour){0,0,0};
 }
 
+static sz emission_list_find(emission_list* list, f64 u) {
+	sz lo = 0, hi = list->count - 1;
+	while (lo < hi) {
+		sz mid = (lo + hi) / 2;
+		if (list->tris[mid].cum_area < u) lo = mid + 1;
+		else hi = mid;
+	}
+	return lo;
+}
+
+static v3 sample_emission_point(scene* sc, u32* rng_state, f64* pdf, sz* mat_id) {
+	// pick a trinagle from the list based on cumulative area
+	f64 u = random_f64(rng_state) * sc->emission_list->total_area;
+	emission_tris* e_tri = &sc->emission_list->tris[emission_list_find(sc->emission_list, u)];
+
+	// pick a random point on that triangle
+	f64 u0 = random_f64(rng_state);
+	f64 u1 = random_f64(rng_state);
+
+	mesh m = sc->objects[e_tri->obj_id].mesh;
+	tri t = m.tris[e_tri->tri_id];
+	v3 v0 = m.verts[(int)t.verts_idx.x];
+	v3 v1 = m.verts[(int)t.verts_idx.y];
+	v3 v2 = m.verts[(int)t.verts_idx.z];
+
+	if (u0 + u1 > 1) { u0 = 1.0 - u0; u1 = 1.0 - u1; }
+	f64 b0 = 1.0 - u0 - u1, b1 = u0, b2 = u1;
+
+	*pdf = 1.0 / sc->emission_list->total_area;
+	*mat_id = t.mat_id;
+
+	return v3_add(v3_add(v3_scale(v0, b0), v3_scale(v1, b1)), v3_scale(v2, b2));
+}
+
+static hit_result intersect(scene* sc, ray r) {
+	hit_result hr;
+	hit_result best_h = {.hit = 0};
+	f64 closest = INFINITY;
+	sz best_obj = -1;
+	for (sz i = 0; i < sc->obj_count; ++i) {
+		if (!hit_bbox(r, sc->objects[i].bbox)) continue;
+
+		hr = bvh_hit(sc->objects[i].bvh, sc->objects[i].mesh, r, closest);
+
+		if (hr.hit && hr.t < closest) {
+			closest = hr.t;
+			best_h = hr;
+			best_obj = i;
+		}
+	}
+	return best_h;
+}
 
 static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 
@@ -54,42 +106,41 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 	light_sample radiance = { {0,0,0,0}, hero_wavelength };
 	light_sample throughput = { {1,1,1,1}, hero_wavelength };
 
+	f64 prev_bsdf_pdf = 0;
+
 	for (sz depth = 0; depth < MAX_BOUNCES; ++depth) {
-		hit_result hr;
-		hit_result best_h = {.hit = 0};
-		sz best_obj = -1;
-		f64 closest = INFINITY;
+		hit_result hr = intersect(sc, r);
 
-		for (sz i = 0; i < sc->obj_count; ++i) {
-			if (!hit_bbox(r, sc->objects[i].bbox)) continue;
-
-			hr = bvh_hit(sc->objects[i].bvh, sc->objects[i].mesh, r, closest);
-
-			if (hr.hit && hr.t < closest) {
-				closest = hr.t;
-				best_h = hr;
-				best_obj = i;
-			}
-		}
-
-		if (!best_h.hit) {
+		if (!hr.hit) {
 			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 1));
 			break;
 		}
 
+		// TODO: integrate backface as a flag in the bsdf_result
+		if (v3_dot(r.dir, hr.true_normal) > 0) {
+			r = (ray) {
+				.origin = v3_add(ray_at(r, hr.t), v3_scale(hr.normal, 1e-7)),
+				.dir = r.dir
+			};
+			continue;
+		}
+
+		mat m = sc->mat_lib->materials[hr.mat_id]; // moved up, reused below too
+
 		shading_ctx ctx = {
-			.point = ray_at(r, best_h.t),
-			.normal = best_h.normal,
-			.true_normal = best_h.true_normal,
+			.point = ray_at(r, hr.t),
+			.normal = hr.normal,
+			.true_normal = hr.true_normal,
 			.r = r,
 			.lambda0 = hero_wavelength,
 			.rng_state = rng_state
 		};
 
-		mat m = sc->mat_lib->materials[best_h.mat_id];
 		bsdf_result bsdf = eval_bsdf(sc->mat_lib, sc->spec_model, m.root_socket, &ctx);
+		prev_bsdf_pdf = bsdf.pdf;
 
 		radiance.value = v4_add(radiance.value, v4_mul(throughput.value, bsdf.emission));
+
 		if (!bsdf.scattered) break;
 
 		throughput.value = v4_mul(throughput.value, bsdf.attenuation);
@@ -102,7 +153,7 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 		}
 
 		r = (ray) {
-			.origin = v3_add(ctx.point, v3_scale(best_h.normal, 1e-7)),
+			.origin = v3_add(ctx.point, v3_scale(hr.normal, 1e-7)),
 			.dir = bsdf.dir
 		};
 	}

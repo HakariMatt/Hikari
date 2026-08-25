@@ -61,7 +61,8 @@ int main(int argc, char* argv[]) {
 	sc.mat_lib = &m_lib;
 	sc.spec_model = spec_model;
 
-	scene_load_obj(&sc, "assets/models/Hikari_in_cornell_box_2.obj");
+	scene_load_obj(&sc, "assets/models/Hikari.obj");
+	scene_load_obj(&sc, "assets/models/Cornell_box.obj");
 
     camera cam = camera_make(
         (v3)CAMERA_POS, (v3)CAMERA_LOOKAT, (v3){0,0,1},

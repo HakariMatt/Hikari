@@ -38,6 +38,7 @@ typedef struct {
 	v4 attenuation;
 	v4 emission;
 	int scattered;
+	f64 pdf;
 } bsdf_result;
 
 typedef struct {
@@ -79,7 +80,7 @@ typedef struct {
 	sz socket_cap;
 } mat_lib;
 
-
+v4 eval_bsdf_response(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx, v3 wi);
 mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx);
 bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx);
 int mat_get(mat_lib* lib, const char* name);

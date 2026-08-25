@@ -168,14 +168,19 @@ void mesh_free(mesh m) {
 	free(m.tris);
 }
 
+void emission_list_free(scene* sc) {
+	free(sc->emission_list->tris);
+}
+
 void scene_free(scene* sc) {
-	for (sz i = 0; i > sc->obj_count; ++i) {
+	for (sz i = 0; i < sc->obj_count; ++i) {
 		bvh_free(sc->objects[i].bvh);
 		free(sc->objects[i].mesh.verts);
 		free(sc->objects[i].mesh.t_coords);
 		free(sc->objects[i].mesh.v_norms);
 		free(sc->objects[i].mesh.tris);
 	}
+	emission_list_free(sc);
 }
 
 static void emission_list_push(emission_list* list, mesh m, sz tri_id, sz obj_id) {
