@@ -57,12 +57,10 @@ static sz emission_list_find(emission_list* list, f64 u) {
 	return lo;
 }
 
-static v3 sample_emission_point(scene* sc, u32* rng_state, f64* pdf, sz* mat_id) {
-	// pick a trinagle from the list based on cumulative area
+static v3 sample_emission_point(scene* sc, u32* rng_state, f64* pdf, sz* mat_id, v3* normal_out) {
 	f64 u = random_f64(rng_state) * sc->emission_list->total_area;
 	emission_tris* e_tri = &sc->emission_list->tris[emission_list_find(sc->emission_list, u)];
 
-	// pick a random point on that triangle
 	f64 u0 = random_f64(rng_state);
 	f64 u1 = random_f64(rng_state);
 
@@ -77,6 +75,7 @@ static v3 sample_emission_point(scene* sc, u32* rng_state, f64* pdf, sz* mat_id)
 
 	*pdf = 1.0 / sc->emission_list->total_area;
 	*mat_id = t.mat_id;
+	*normal_out = v3_norm(v3_cross(v3_sub(v1, v0), v3_sub(v2, v0)));
 
 	return v3_add(v3_add(v3_scale(v0, b0), v3_scale(v1, b1)), v3_scale(v2, b2));
 }
@@ -100,23 +99,27 @@ static hit_result intersect(scene* sc, ray r) {
 	return best_h;
 }
 
-static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
+static f64 power_heuristic(f64 pdf_a, f64 pdf_b) {
+	f64 a2 = pdf_a*pdf_a, b2 = pdf_b*pdf_b;
+	return a2 / (a2 + b2);
+}
 
+static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 	f64 hero_wavelength = random_wavelength(rng_state);
 	light_sample radiance = { {0,0,0,0}, hero_wavelength };
 	light_sample throughput = { {1,1,1,1}, hero_wavelength };
 
-	f64 prev_bsdf_pdf = 0;
+	f64 prev_bsdf_pdf = 0;     // solid-angle pdf of the direction that produced `r`
+	int prev_specular = 1;     // depth 0 (camera ray): no prior bsdf sample to weight against
 
 	for (sz depth = 0; depth < MAX_BOUNCES; ++depth) {
 		hit_result hr = intersect(sc, r);
 
 		if (!hr.hit) {
-			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 1));
+			radiance.value = v4_add(radiance.value, v4_scale(throughput.value, 0));
 			break;
 		}
 
-		// TODO: integrate backface as a flag in the bsdf_result
 		if (v3_dot(r.dir, hr.true_normal) > 0) {
 			r = (ray) {
 				.origin = v3_add(ray_at(r, hr.t), v3_scale(hr.normal, 1e-7)),
@@ -125,10 +128,66 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 			continue;
 		}
 
-		mat m = sc->mat_lib->materials[hr.mat_id]; // moved up, reused below too
+		mat m = sc->mat_lib->materials[hr.mat_id];
+		v3 hit_point = ray_at(r, hr.t);
+
+		// hit light right away
+		if (is_emissive(sc->mat_lib, hr.mat_id)) {
+			bsdf_result self_emit = eval_bsdf(sc->mat_lib, sc->spec_model, m.root_socket,
+				&(shading_ctx){ .lambda0 = hero_wavelength });
+
+			f64 weight = 1.0;
+			if (!prev_specular) {
+				f64 ray_len = v3_len(r.dir);
+				f64 dist = hr.t * ray_len;
+				f64 cos_light = fmax(v3_dot(v3_scale(r.dir, -1.0/ray_len), hr.true_normal), 0.0);
+				f64 pdf_light = cos_light > 0
+					? (1.0 / sc->emission_list->total_area) * dist * dist / cos_light
+					: 0;
+				weight = power_heuristic(prev_bsdf_pdf, pdf_light);
+			}
+			radiance.value = v4_add(radiance.value, v4_scale(v4_mul(throughput.value, self_emit.emission), weight));
+		}
+
+		// NEE
+		f64 pdf_area;
+		sz emission_mat_id;
+		v3 light_normal;
+		v3 light_point = sample_emission_point(sc, rng_state, &pdf_area, &emission_mat_id, &light_normal);
+
+		v3 to_light = v3_sub(light_point, hit_point);
+		f64 dist2 = v3_dot(to_light, to_light), dist = sqrt(dist2);
+		v3 wi = v3_scale(to_light, 1.0/dist);
+
+		f64 cos_surface = v3_dot(wi, hr.normal);
+		f64 cos_light   = v3_dot(v3_scale(wi, -1.0), light_normal);
+
+		if (cos_surface > 0 && cos_light > 0) {
+			ray dls_ray = { .origin = v3_add(hit_point, v3_scale(hr.normal, 1e-7)), .dir = wi };
+			hit_result dls_hit = intersect(sc, dls_ray);
+			if (!(dls_hit.hit && dls_hit.t < dist - 1e-4)) {
+				shading_ctx nee_ctx = {
+					.point = hit_point, .lambda0 = hero_wavelength,
+					.normal = hr.normal, .true_normal = hr.true_normal,
+					.r = r, .rng_state = rng_state
+				};
+				v4 bsdf_val = eval_bsdf_response(sc->mat_lib, sc->spec_model, m.root_socket, &nee_ctx, wi);
+				f64 pdf_bsdf = eval_bsdf_pdf(sc->mat_lib, m.root_socket, &nee_ctx, wi);
+
+				mat light_mat = sc->mat_lib->materials[emission_mat_id];
+				bsdf_result light_emit = eval_bsdf(sc->mat_lib, sc->spec_model, light_mat.root_socket,
+					&(shading_ctx){ .lambda0 = hero_wavelength });
+
+				f64 pdf_light = pdf_area * dist2 / cos_light;
+				f64 weight = power_heuristic(pdf_light, pdf_bsdf);
+
+				v4 contrib = v4_scale(v4_mul(bsdf_val, light_emit.emission), weight * cos_surface / pdf_light);
+				radiance.value = v4_add(radiance.value, v4_mul(throughput.value, contrib));
+			}
+		}
 
 		shading_ctx ctx = {
-			.point = ray_at(r, hr.t),
+			.point = hit_point,
 			.normal = hr.normal,
 			.true_normal = hr.true_normal,
 			.r = r,
@@ -137,11 +196,10 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 		};
 
 		bsdf_result bsdf = eval_bsdf(sc->mat_lib, sc->spec_model, m.root_socket, &ctx);
-		prev_bsdf_pdf = bsdf.pdf;
-
-		radiance.value = v4_add(radiance.value, v4_mul(throughput.value, bsdf.emission));
-
 		if (!bsdf.scattered) break;
+
+		prev_bsdf_pdf = bsdf.pdf;
+		prev_specular = 0;   // flip to 1 here if you ever add a delta BSDF (mirror/glass)
 
 		throughput.value = v4_mul(throughput.value, bsdf.attenuation);
 
@@ -149,13 +207,10 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 		p = fmin(p, 1.0);
 		if (depth > MIN_RR_DEPTH) {
 			if (random_f64(rng_state) > p) break;
-			throughput.value = v4_scale(throughput.value, 1.0 / p);
+			throughput.value = v4_scale(throughput.value, 1.0/p);
 		}
 
-		r = (ray) {
-			.origin = v3_add(ctx.point, v3_scale(hr.normal, 1e-7)),
-			.dir = bsdf.dir
-		};
+		r = (ray){ .origin = v3_add(ctx.point, v3_scale(hr.normal, 1e-7)), .dir = bsdf.dir };
 	}
 
 	return radiance;

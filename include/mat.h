@@ -80,6 +80,7 @@ typedef struct {
 	sz socket_cap;
 } mat_lib;
 
+f64 eval_bsdf_pdf(mat_lib* lib, i32 node_idx, shading_ctx* ctx, v3 wi);
 v4 eval_bsdf_response(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx, v3 wi);
 mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx);
 bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_ctx* ctx);

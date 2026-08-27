@@ -3,16 +3,16 @@
 
 // all the settings
 
-#define CAMERA_LOOKAT 	{ 0.0, 0.0, 1 }
-#define CAMERA_POS	 	{ 0, -5.67408 , 1}
-// #define CAMERA_LOOKAT 	{ 0.0, 0.0, 4.52425 }
-// #define CAMERA_POS	 	{ 9.52398, 0 , 1.5754}
+// #define CAMERA_LOOKAT 	{ 0.0, 0.0, 1 }
+// #define CAMERA_POS	 	{ 0, -5.67408 , 1}
+#define CAMERA_LOOKAT 	{ 0.0, 0.0, 0.547059 }
+#define CAMERA_POS	 	{ -0.93779, -2.75192, 0.924639}
 #define CAMERA_FOV		24
 
 #define WIDTH  			480		// dimensions of the image in pixels
-#define HEIGHT			480
+#define HEIGHT			640
 #define MAX_BOUNCES 	4		// how many times ray can bounce before dying off
-#define N_SAMPLES		8		// number of samples per pixel
+#define N_SAMPLES		4096		// number of samples per pixel
 
 #define LAMBDA_MIN		380.0		// lower bound of spectral range (nm). λ_min < λ_max
 #define LAMBDA_MAX		780.0		// upper bound of spectral range (nm).

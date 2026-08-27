@@ -61,8 +61,9 @@ int main(int argc, char* argv[]) {
 	sc.mat_lib = &m_lib;
 	sc.spec_model = spec_model;
 
-	scene_load_obj(&sc, "assets/models/Hikari.obj");
-	scene_load_obj(&sc, "assets/models/Cornell_box.obj");
+	// scene_load_obj(&sc, "assets/models/Hikari.obj");
+	// scene_load_obj(&sc, "assets/models/Cornell_box.obj");
+	scene_load_obj(&sc, "assets/models/Hikari_with_bg.obj");
 
     camera cam = camera_make(
         (v3)CAMERA_POS, (v3)CAMERA_LOOKAT, (v3){0,0,1},
@@ -74,8 +75,7 @@ int main(int argc, char* argv[]) {
 
     // Hikari materials
     i = mat_get(sc.mat_lib, "Halo");
-    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 1);
-    // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.000000, 0.954206, 1.000000});
+    sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){0.296138, 1.000000, 0.520996}, 3);
 
     i = mat_get(sc.mat_lib, "CH0242_Body");
     sc.mat_lib->materials[i].root_socket = white_matte;
@@ -98,17 +98,17 @@ int main(int argc, char* argv[]) {
     i = mat_get(sc.mat_lib, "Light");
     sc.mat_lib->materials[i].root_socket = mat_node_emission(&m_lib, (v3){1, 1, 1}, 10);
 
-    i = mat_get(sc.mat_lib, "Back");
-    sc.mat_lib->materials[i].root_socket = white_matte;
-    i = mat_get(sc.mat_lib, "Ceiling");
-    sc.mat_lib->materials[i].root_socket = white_matte;
+    // i = mat_get(sc.mat_lib, "Back");
+    // sc.mat_lib->materials[i].root_socket = white_matte;
+    // i = mat_get(sc.mat_lib, "Ceiling");
+    // sc.mat_lib->materials[i].root_socket = white_matte;
     i = mat_get(sc.mat_lib, "Floor");
     sc.mat_lib->materials[i].root_socket = white_matte;
 
-    i = mat_get(sc.mat_lib, "Right");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.163521, 0.800015, 0.122934});
-    i = mat_get(sc.mat_lib, "Left");
-    sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.800007, 0.171799, 0.122933});
+    // i = mat_get(sc.mat_lib, "Right");
+    // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.163521, 0.800015, 0.122934});
+    // i = mat_get(sc.mat_lib, "Left");
+    // sc.mat_lib->materials[i].root_socket = mat_node_diffuse(&m_lib, (v3){0.800007, 0.171799, 0.122933});
 
     // creating pixel buffer
     f32* img = malloc(IMG_SIZE*sizeof(f32));

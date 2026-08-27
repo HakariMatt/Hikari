@@ -42,6 +42,19 @@ v4 eval_bsdf_response(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_
 	}
 }
 
+f64 eval_bsdf_pdf(mat_lib* lib, i32 node_idx, shading_ctx* ctx, v3 wi) {
+	if (node_idx == -1) return 0;
+	mat_node* n = &lib->nodes[node_idx];
+	switch (n->type) {
+		case NODE_DIFFUSE: {
+			f64 cos_theta = v3_dot(wi, ctx->normal);
+			return cos_theta > 0 ? cos_theta / M_PI : 0;
+		}
+		default:
+			return 0;
+	}
+}
+
 mat_node_value_data eval_value(mat_lib* lib, i32 socket_idx, shading_ctx* ctx) {
 	mat_node_socket* s = &lib->sockets[socket_idx];
 	if (s->link == -1) return s->data;

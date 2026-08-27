@@ -211,7 +211,7 @@ static void emission_list_push(emission_list* list, mesh m, sz tri_id, sz obj_id
 	list->count++;
 }
 
-static int is_emissive(mat_lib* lib, sz mat_id) {
+int is_emissive(mat_lib* lib, sz mat_id) {
 	if (!lib) return 0;
 
 	mat m = lib->materials[mat_id];

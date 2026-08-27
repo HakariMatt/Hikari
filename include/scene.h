@@ -31,5 +31,6 @@ void scene_load_obj(scene* scene, char* filepath);
 void scene_object_push(scene* s, object o);
 void scene_free(scene* sc);
 void build_emission_list(scene* sc);
+int is_emissive(mat_lib* lib, sz mat_id);
 
 #endif
