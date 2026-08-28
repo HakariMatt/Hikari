@@ -19,7 +19,11 @@
 
 static int cpu_backend_init(render_args* args) {
 	for (sz i = 0; i < args->scene.obj_count; ++i) {
-		args->scene.objects[i].bvh = bvh_build_root(args->scene.objects[i].mesh);
+		args->scene.objects[i].bvh = bvh_build_root(
+			args->scene.objects[i].mesh,
+			args->settings.bvh_max_depth,
+			args->settings.bvh_leaf_tris
+		);
 	}
 	return 0;
 }
@@ -33,9 +37,9 @@ const render_backend cpu_backend_ops = {
 	.shutdown = cpu_backend_shutdown,
 };
 
-static f64 random_wavelength(u32* state) {
+static f64 random_wavelength(u32* state, HikariSettings settings) {
 	f64 u = random_f64(state);
-	return u * (LAMBDA_MAX - LAMBDA_MIN) + LAMBDA_MIN;
+	return u * (settings.lambda_max - settings.lambda_min) + settings.lambda_min;
 }
 
 static colour sky_colour(ray r) {
@@ -104,15 +108,15 @@ static f64 power_heuristic(f64 pdf_a, f64 pdf_b) {
 	return a2 / (a2 + b2);
 }
 
-static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
-	f64 hero_wavelength = random_wavelength(rng_state);
+static light_sample trace_path(ray r, scene* sc, u32* rng_state, HikariSettings settings) {
+	f64 hero_wavelength = random_wavelength(rng_state, settings);
 	light_sample radiance = { {0,0,0,0}, hero_wavelength };
 	light_sample throughput = { {1,1,1,1}, hero_wavelength };
 
 	f64 prev_bsdf_pdf = 0;     // solid-angle pdf of the direction that produced `r`
 	int prev_specular = 1;     // depth 0 (camera ray): no prior bsdf sample to weight against
 
-	for (sz depth = 0; depth < MAX_BOUNCES; ++depth) {
+	for (sz depth = 0; depth < settings.max_bounces; ++depth) {
 		hit_result hr = intersect(sc, r);
 
 		if (!hr.hit) {
@@ -134,7 +138,7 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 		// hit light right away
 		if (is_emissive(sc->mat_lib, hr.mat_id)) {
 			bsdf_result self_emit = eval_bsdf(sc->mat_lib, sc->spec_model, m.root_socket,
-				&(shading_ctx){ .lambda0 = hero_wavelength });
+				&(shading_ctx){ .lambda0 = hero_wavelength, .lambda_min = settings.lambda_min, .lambda_max = settings.lambda_max });
 
 			f64 weight = 1.0;
 			if (!prev_specular) {
@@ -168,6 +172,7 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 			if (!(dls_hit.hit && dls_hit.t < dist - 1e-4)) {
 				shading_ctx nee_ctx = {
 					.point = hit_point, .lambda0 = hero_wavelength,
+					.lambda_min = settings.lambda_min, .lambda_max = settings.lambda_max,
 					.normal = hr.normal, .true_normal = hr.true_normal,
 					.r = r, .rng_state = rng_state
 				};
@@ -176,7 +181,7 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 
 				mat light_mat = sc->mat_lib->materials[emission_mat_id];
 				bsdf_result light_emit = eval_bsdf(sc->mat_lib, sc->spec_model, light_mat.root_socket,
-					&(shading_ctx){ .lambda0 = hero_wavelength });
+					&(shading_ctx){ .lambda0 = hero_wavelength, .lambda_min = settings.lambda_min, .lambda_max = settings.lambda_max });
 
 				f64 pdf_light = pdf_area * dist2 / cos_light;
 				f64 weight = power_heuristic(pdf_light, pdf_bsdf);
@@ -192,6 +197,8 @@ static light_sample trace_path(ray r, scene* sc, u32* rng_state) {
 			.true_normal = hr.true_normal,
 			.r = r,
 			.lambda0 = hero_wavelength,
+			.lambda_min = settings.lambda_min,
+			.lambda_max = settings.lambda_max,
 			.rng_state = rng_state
 		};
 
@@ -223,20 +230,23 @@ void render_progressive(render_args* args) {
 
 	u32 rng_state;
 
-	sz width = args->width;
-	sz height = args->height;
+	sz width = args->settings.width;
+	sz height = args->settings.height;
 	f32* img = args->img;
-	camera cam = args->cam;
 	scene* sc = &args->scene;
+	camera cam = sc->camera;
 
-	print(INFO, "Width:   %zu", width);
-	print(INFO, "Height:  %zu", height);
-	print(INFO, "Samples: %zu", N_SAMPLES);
-	print(INFO, "Bounces: %zu", MAX_BOUNCES);
+	// print(INFO, "Width:   %zu", width);
+	// print(INFO, "Height:  %zu", height);
+	// print(INFO, "Samples: %zu", args->settings.samples);
+	// print(INFO, "Bounces: %zu", args->settings.max_bounces);
 
 	STOPWATCH(t0);
 
-	for (sz s = 0; s < N_SAMPLES; ++s) {
+	for (sz s = 0; s < args->settings.samples; ++s) {
+		f64 lambda_min = args->settings.lambda_min;
+		f64 lambda_max = args->settings.lambda_max;
+
 		if (args->state->should_stop) break;
 		#pragma omp parallel for schedule(dynamic)
 		for (sz y = 0; y < height; ++y) {
@@ -264,13 +274,13 @@ void render_progressive(render_args* args) {
 
 				ray r = camera_get_ray(cam, u, v);
 
-				light_sample sample = trace_path(r, sc, &rng_state);
+				light_sample sample = trace_path(r, sc, &rng_state, args->settings);
 
 				colour colour_sample = {0};
 
 				v3 xyz = {0,0,0};
 				for (int i = 0; i < 4; ++i) {
-					f64 lambda_i = wrap_wavelength(sample.lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+					f64 lambda_i = wrap_wavelength(sample.lambda0 + i * ((lambda_max - lambda_min) / 4.0), lambda_min, lambda_max);
 					v3 cmf = cmf_lookup(lambda_i);
 					f64 value = 0;
 					switch (i) {
@@ -282,7 +292,7 @@ void render_progressive(render_args* args) {
 					xyz = v3_add(xyz, v3_scale(cmf, value));
 				}
 
-				xyz = v3_scale(xyz, (LAMBDA_BAR / 4.0) * CMF_NORM_K);
+				xyz = v3_scale(xyz, ((lambda_max - lambda_min) / 4.0) * cmf_norm_k);
 
 				colour_sample = v3_to_colour(xyz_to_srgb(E_to_D65(xyz)));
 

@@ -1,26 +1,26 @@
 #ifndef _RENDER_BACKEND_H
 #define _RENDER_BACKEND_H
 
+#include <stdatomic.h>
+
 #include "types.h"
 #include "scene.h"
+#include "Hikari.h"
 
 typedef struct {
-	volatile int done;
-	sz samples_done;
-
-	int should_stop;
+	atomic_int    done;
+	atomic_size_t samples_done;
+	atomic_int    should_stop;
 } render_state;
 
 typedef struct render_backend render_backend;
 typedef struct {
     f32* img;
-    sz width, height;
-    camera cam;
     scene scene;
     render_state* state;
     void* ctx;
     struct render_backend* backend;
-    u32 lut_res;
+    HikariSettings settings;
 } render_args;
 
 struct render_backend {

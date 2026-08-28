@@ -25,6 +25,10 @@ static boundbox boundbox_make(v3* verts, sz vcount) {
 	return (boundbox){ max_x, min_x, max_y, min_y, max_z, min_z };
 }
 
+void scene_make_camera(scene* sc, v3 pos, v3 lookat, v3 vup, f64 vfov_deg, f64 aspect, f64 aperture, f64 focus_dist) {
+	sc->camera = camera_make(pos, lookat, vup, vfov_deg, aspect, aperture, focus_dist);
+}
+
 void scene_object_push(scene* s, object o) {
 	if (s->obj_count >= s->obj_cap) {
 		if (s->obj_cap == 0) s->obj_cap = 32;
@@ -35,13 +39,13 @@ void scene_object_push(scene* s, object o) {
 	s->obj_count++;
 }
 
-void scene_load_obj(scene* scene, char* filepath) {
-	if (!scene) return;
+int scene_load_obj(scene* scene, const char* filepath) {
+	if (!scene) return -1;
 
 	FILE* f = fopen(filepath, "r");
 	if (!f) {
 		print(ERROR, "File `%s` couldn't be opened", filepath);
-		return;
+		return -1;
 	}
 
 	sz vcap = 1024; sz vcount = 0;
@@ -161,6 +165,7 @@ void scene_load_obj(scene* scene, char* filepath) {
 	print(INFO, "Object successfully loaded");
 	print(INFO, "    verts: %zu", vcount);
 	print(INFO, "    tris:  %zu", tcount);
+	return scene->obj_count-1;
 }
 
 void mesh_free(mesh m) {

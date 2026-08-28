@@ -5,7 +5,7 @@
 #include "../include/v3.h"
 #include "../include/log.h"
 #include "../include/spectrum.h"
-#include "../include/settings.h"
+// #include "../include/settings.h"
 
 
 v3 sample_cosine_hemisphere(v3 n, f64 *pdf_out, u32* rng_state) {
@@ -34,7 +34,7 @@ v4 eval_bsdf_response(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_
 		case NODE_DIFFUSE: {
 			if (v3_dot(wi, ctx->normal) <= 0) return (v4){0};
 			v3 rgb = eval_value(lib, n->input_start, ctx).v3;
-			v4 albedo = spectral_upsample(spec_model, rgb, ctx->lambda0);
+			v4 albedo = spectral_upsample(spec_model, rgb, ctx);
 			return v4_scale(albedo, 1.0 / M_PI);
 		}
 		default:
@@ -72,7 +72,7 @@ bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_
 	switch (n->type) {
 		case NODE_DIFFUSE: {
 			v3 rgb = eval_value(lib, n->input_start, ctx).v3;
-			v4 attenuation = spectral_upsample(spec_model, rgb, ctx->lambda0);
+			v4 attenuation = spectral_upsample(spec_model, rgb, ctx);
 
 			f64 pdf = 0;
 			v3 dir = sample_cosine_hemisphere(ctx->normal, &pdf, ctx->rng_state);
@@ -81,7 +81,7 @@ bsdf_result eval_bsdf(mat_lib* lib, RGB2Spec* spec_model, i32 node_idx, shading_
 		}
 		case NODE_EMISSION: {
 			v3 rgb = eval_value(lib, n->input_start + 0, ctx).v3;
-			v4 emission = spectral_upsample(spec_model, rgb, ctx->lambda0);
+			v4 emission = spectral_upsample(spec_model, rgb, ctx);
 			f64 strength = eval_value(lib, n->input_start + 1, ctx).value;
 			return (bsdf_result){ .emission = v4_scale(emission, strength), .scattered = 0 };
 		}
@@ -168,13 +168,13 @@ i32 mat_node_emission(mat_lib* lib, v3 colour, f64 strength) {
 	});
 }
 
-// mat_node* diffuse_bsdf(colour c) {
-// 	mat_node* m = malloc(sizeof(mat_node));
-// 	mat_node_socket* s = malloc(sizeof(mat_node_socket));
-// 	if (!m) return NULL;
+void mat_node_connect_output(mat_lib* lib, const char* mat_name, int node_id) {
+	if (!lib || !mat_name) return;
+	if (node_id == -1) return;
+	if (node_id+1 > lib->node_count) return;
 
-// 	s->type = NV_COLOUR;
-// 	s->data.v3 = colour_to_v3(c);
-// 	s->link = NULL;
-// 	m->;
-// }
+	int i = mat_get(lib, mat_name);
+	if(i == -1) return;
+
+    lib->materials[i].root_socket = node_id;
+}

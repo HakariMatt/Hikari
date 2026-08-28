@@ -56,8 +56,8 @@ static bvh_node* bvh_make_leaf(mesh m, sz* tri_idxs, sz count) {
 	return node;
 }
 
-static bvh_node* bvh_build(mesh m, sz* tri_idxs, sz count, sz depth) {
-	if (count <= BVH_LEAF_TRIS || depth >= BVH_MAX_DEPTH) {
+static bvh_node* bvh_build(mesh m, sz* tri_idxs, sz count, sz depth, u32 max_depth, u32 leaf_tris) {
+	if (count <= leaf_tris || depth >= max_depth) {
 		return bvh_make_leaf(m, tri_idxs, count);
 	}
 
@@ -102,18 +102,18 @@ static bvh_node* bvh_build(mesh m, sz* tri_idxs, sz count, sz depth) {
 	node->bbox = bbox;
 	node->tri_idxs = NULL;
 	node->tri_count = 0;
-	node->childA = bvh_build(m, left,  nleft,  depth + 1);
-	node->childB = bvh_build(m, right, nright, depth + 1);
+	node->childA = bvh_build(m, left,  nleft,  depth + 1, max_depth, leaf_tris);
+	node->childB = bvh_build(m, right, nright, depth + 1, max_depth, leaf_tris);
 
 	free(left);
 	free(right);
 	return node;
 }
 
-bvh_node* bvh_build_root(mesh m) {
+bvh_node* bvh_build_root(mesh m, u32 max_depth, u32 leaf_tris) {
 	sz* all = malloc(m.ntris * sizeof(sz));
 	for (sz i = 0; i < m.ntris; ++i) all[i] = i;
-	bvh_node* root = bvh_build(m, all, m.ntris, 0);
+	bvh_node* root = bvh_build(m, all, m.ntris, 0, max_depth, leaf_tris);
 	free(all);
 	return root;
 }

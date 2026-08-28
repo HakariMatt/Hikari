@@ -1,9 +1,9 @@
 #include "../include/spectrum.h"
-#include "../include/settings.h"
+// #include "../include/settings.h"
 #include <math.h>
 
 
-v4 spectral_upsample(RGB2Spec* model, v3 rgb, f64 lambda0) {
+v4 spectral_upsample(RGB2Spec* model, v3 rgb, shading_ctx* ctx) {
 	f32 rgb_arr[3] = {rgb.x, rgb.y, rgb.z};
 	f32 coefs[RGB2SPEC_N_COEFFS];
 	rgb2spec_fetch(model, rgb_arr, coefs);
@@ -11,7 +11,7 @@ v4 spectral_upsample(RGB2Spec* model, v3 rgb, f64 lambda0) {
 	v4 response;
 
 	for (int i = 0; i < 4; ++i) {
-		f64 lambda_i = wrap_wavelength(lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+		f64 lambda_i = wrap_wavelength(ctx->lambda0 + i * ((ctx->lambda_max - ctx->lambda_min) / 4), ctx->lambda_min, ctx->lambda_max);
 		f32 value = rgb2spec_eval_precise(coefs, lambda_i);
 		switch (i) {
 			case 0: response.x = value; break;

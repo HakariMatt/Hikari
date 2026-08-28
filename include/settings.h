@@ -21,7 +21,6 @@
 #define BVH_MAX_DEPTH   24
 #define BVH_LEAF_TRIS   4
 #define LAMBDA_BAR (LAMBDA_MAX - LAMBDA_MIN)
-#define CMF_NORM_K (1 / 106.856) // precomputed. ≈∫ȳ(λ)dλ
 #define MIN_RR_DEPTH 4
 
 #endif

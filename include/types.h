@@ -64,5 +64,15 @@ typedef struct {
 
 typedef struct { f64 t; v3 normal; v3 true_normal; int hit; sz mat_id; } hit_result;
 
+typedef struct {
+	v3 point;
+	ray r;
+	v3 normal;
+	v3 true_normal;
+	f64 lambda0;
+	f64 lambda_min;
+	f64 lambda_max;
+	u32* rng_state;
+} shading_ctx;
 
 #endif

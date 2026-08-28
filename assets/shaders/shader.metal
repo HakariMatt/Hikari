@@ -7,6 +7,8 @@
 using namespace metal;
 using namespace metal::raytracing;
 
+#define CMF_NORM_K (1.0 / 106.856)
+
 typedef struct {
 	float4 values;
 	float lambda0;

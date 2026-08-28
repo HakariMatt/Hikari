@@ -25,15 +25,6 @@ typedef union {
 } mat_node_value_data;
 
 typedef struct {
-	v3 point;
-	ray r;
-	v3 normal;
-	v3 true_normal;
-	f64 lambda0;
-	u32* rng_state;
-} shading_ctx;
-
-typedef struct {
 	v3 dir;
 	v4 attenuation;
 	v4 emission;
@@ -88,6 +79,8 @@ int mat_get(mat_lib* lib, const char* name);
 int mat_create(mat_lib* lib, char* name);
 i32 mat_node_diffuse(mat_lib* lib, v3 colour);
 i32 mat_node_emission(mat_lib* lib, v3 colour, f64 strength);
+
+void mat_node_connect_output(mat_lib* lib, const char* mat_name, int node_id);
 
 // mat_node* diffuse_bsdf(colour c);
 

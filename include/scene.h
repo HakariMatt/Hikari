@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "mat.h"
+#include "camera.h"
 
 typedef struct {
 	sz obj_id;
@@ -19,6 +20,7 @@ typedef struct {
 } emission_list;
 
 typedef struct {
+	camera camera;
 	object* objects;
 	sz obj_count;
     sz obj_cap;
@@ -27,8 +29,8 @@ typedef struct {
     emission_list* emission_list;
 } scene;
 
-void scene_load_obj(scene* scene, char* filepath);
-void scene_object_push(scene* s, object o);
+void scene_make_camera(scene* sc, v3 pos, v3 lookat, v3 vup, f64 vfov_deg, f64 aspect, f64 aperture, f64 focus_dist);
+int scene_load_obj(scene* scene, const char* filepath);
 void scene_free(scene* sc);
 void build_emission_list(scene* sc);
 int is_emissive(mat_lib* lib, sz mat_id);

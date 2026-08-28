@@ -338,10 +338,10 @@ void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t s
     }
 
     gpu_camera gpuCamera = {
-        .origin = to_gpu_v3(renderArguments.cam.origin),
-        .lower_left = to_gpu_v3(renderArguments.cam.lower_left),
-        .horizontal = to_gpu_v3(renderArguments.cam.horizontal),
-        .vertical = to_gpu_v3(renderArguments.cam.vertical)};
+        .origin = to_gpu_v3(renderArguments.scene.camera.origin),
+        .lower_left = to_gpu_v3(renderArguments.scene.camera.lower_left),
+        .horizontal = to_gpu_v3(renderArguments.scene.camera.horizontal),
+        .vertical = to_gpu_v3(renderArguments.scene.camera.vertical)};
 
 
     sz imageBytesCount =

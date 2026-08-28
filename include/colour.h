@@ -43,15 +43,6 @@ static inline void colour_clip(colour* a, f64 value) {
 	a->b = fmin(a->b, value);
 }
 
-// (v * (2.51 * v + 0.03)) / (v * (2.43 * v + 0.59) + 0.14)
-static inline colour colour_aces_tonemap(colour a) {
-	return (colour) {
-		(a.r * (2.51 * a.r + 0.03)) / (a.r * (2.43 * a.r + 0.59) + 0.14),
-		(a.g * (2.51 * a.g + 0.03)) / (a.g * (2.43 * a.g + 0.59) + 0.14),
-		(a.b * (2.51 * a.b + 0.03)) / (a.b * (2.43 * a.b + 0.59) + 0.14),
-	};
-}
-
 static inline colour colour_srgb_i(int r, int g, int b) {
 	return (colour) { r / 255.0, g / 255.0, b / 255.0 };
 }
