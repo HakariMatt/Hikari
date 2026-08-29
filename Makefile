@@ -1,94 +1,48 @@
 CC = clang
 
-COMMON_CFLAGS = -Wall -Wextra -Iinclude -Irgb2spec -MMD -MP
-LIB_CFLAGS    = -fPIC
+CFLAGS = -Wall -Wextra -Iinclude -Irgb2spec -fPIC -DHIKARI_METAL -MMD -MP
 
-CPU_CFLAGS = -Xclang -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp
+lib          = libhikari.dylib
+metal_lib    = assets/shaders/shader.metallib
+metal_shader = assets/shaders/shader.metal
+obj_dir      = obj
 
-lib_basename = hikari
-lib_cpu      = $(lib_basename).dylib
-lib_mtl      = $(lib_basename)_metal.dylib
+demo = hikari_demo
 
-demo_target = hikari_demo
+sources = $(filter-out src/display.c,$(wildcard src/*.c)) $(wildcard rgb2spec/*.c)
+objects = $(patsubst %.c,$(obj_dir)/%.o,$(notdir $(sources)))
+objects += $(obj_dir)/metal_backend.o
 
-shaders_dir  = assets/shaders
-obj_c_dir    = obj-c
-metal_shader = $(shaders_dir)/shader.metal
-metal_lib    = $(shaders_dir)/shader.metallib
+vpath %.c src rgb2spec
 
-obj_lib_cpu_dir = obj/hikari
-obj_lib_mtl_dir = obj/hikarimtl
+.PHONY: all clean
 
-rgb2spec_dir     = rgb2spec
-rgb2spec_sources = $(wildcard $(rgb2spec_dir)/*.c)
+all: $(lib) $(metal_lib)
 
-lib_sources = $(filter-out src/display.c,$(wildcard src/*.c))
-
-lib_cpu_objects = $(patsubst src/%.c,$(obj_lib_cpu_dir)/%.o,$(lib_sources)) \
-                  $(patsubst $(rgb2spec_dir)/%.c,$(obj_lib_cpu_dir)/%.o,$(rgb2spec_sources))
-lib_mtl_objects = $(patsubst src/%.c,$(obj_lib_mtl_dir)/%.o,$(lib_sources)) \
-                  $(patsubst $(rgb2spec_dir)/%.c,$(obj_lib_mtl_dir)/%.o,$(rgb2spec_sources))
-
-.PHONY: all lib lib-metal demo clean
-
-all: lib demo
-
-
-lib: $(lib_cpu)
-
-$(lib_cpu): $(lib_cpu_objects)
-	$(CC) -dynamiclib $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) \
-		$(lib_cpu_objects) \
-		-install_name @rpath/$(lib_cpu) \
+$(lib): $(objects)
+	$(CC) -dynamiclib $(CFLAGS) $(objects) \
+		-install_name @rpath/$(lib) \
+		-framework Metal -framework Foundation -framework QuartzCore -lobjc \
 		-o $@
 
-$(obj_lib_cpu_dir)/%.o: src/%.c | $(obj_lib_cpu_dir)
-	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) -c $< -o $@
+$(obj_dir)/%.o: %.c | $(obj_dir)
+	$(CC) $(CFLAGS) -c $< -o $@
 
-$(obj_lib_cpu_dir)/%.o: $(rgb2spec_dir)/%.c | $(obj_lib_cpu_dir)
-	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) -c $< -o $@
+$(obj_dir)/metal_backend.o: obj-c/metal_backend.m include/metal_backend.h | $(obj_dir)
+	$(CC) -fobjc-arc -x objective-c $(CFLAGS) -c obj-c/metal_backend.m -o $@
 
-$(obj_lib_cpu_dir):
-	mkdir -p $@
-
-
-lib-metal: $(lib_mtl) $(metal_lib)
-
-$(lib_mtl): $(lib_mtl_objects) $(obj_lib_mtl_dir)/metal_backend.o
-	$(CC) -dynamiclib $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) \
-		$(lib_mtl_objects) $(obj_lib_mtl_dir)/metal_backend.o \
-		-install_name @rpath/$(lib_mtl) \
-		-o $@ \
-		-framework Metal -framework Foundation -framework QuartzCore -lobjc
-
-$(obj_lib_mtl_dir)/%.o: src/%.c | $(obj_lib_mtl_dir)
-	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) -DHIKARI_METAL -c $< -o $@
-
-$(obj_lib_mtl_dir)/%.o: $(rgb2spec_dir)/%.c | $(obj_lib_mtl_dir)
-	$(CC) $(COMMON_CFLAGS) $(CPU_CFLAGS) $(LIB_CFLAGS) -DHIKARI_METAL -c $< -o $@
-
-$(obj_lib_mtl_dir)/metal_backend.o: $(obj_c_dir)/metal_backend.m include/metal_backend.h | $(obj_lib_mtl_dir)
-	$(CC) -fobjc-arc -fPIC -x objective-c $(COMMON_CFLAGS) -DHIKARI_METAL -c $(obj_c_dir)/metal_backend.m -o $@
-
-$(obj_lib_mtl_dir):
+$(obj_dir):
 	mkdir -p $@
 
 $(metal_lib): $(metal_shader)
-	xcrun -sdk macosx metal -c $(metal_shader) -o $(shaders_dir)/shader.air
-	xcrun -sdk macosx metallib $(shaders_dir)/shader.air -o $(metal_lib)
-	rm $(shaders_dir)/shader.air
+	xcrun -sdk macosx metal -c $(metal_shader) -o assets/shaders/shader.air
+	xcrun -sdk macosx metallib assets/shaders/shader.air -o $(metal_lib)
+	rm assets/shaders/shader.air
 
-
-demo: $(demo_target)
-
-$(demo_target): main.c $(lib_cpu)
-	$(CC) $(COMMON_CFLAGS) main.c \
-		-L. -l$(lib_basename) \
-		-Wl,-rpath,@executable_path \
-		-o $@
+demo: $(lib) $(metal_lib)
+	$(CC) -L./ -lhikari -Wl,-rpath,@executable_path main.c -o hikari_demo
 
 clean:
-	rm -rf obj $(lib_cpu) $(lib_mtl) $(demo_target) $(shaders_dir)/shader.air $(metal_lib) hikari_demo.d
+	rm -rf $(obj_dir) $(lib) $(metal_lib) hikari_demo
 
--include $(lib_cpu_objects:.o=.d)
--include $(lib_mtl_objects:.o=.d)
+-include $(objects:.o=.d)

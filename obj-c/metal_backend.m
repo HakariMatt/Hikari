@@ -344,11 +344,19 @@ void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t s
         .vertical = to_gpu_v3(renderArguments.scene.camera.vertical)};
 
 
-    sz imageBytesCount =
-        renderArguments.width * renderArguments.height * 3 * sizeof(f32);
-    gpu_args gpuArguments = {.width = renderArguments.width,
-                             .height = renderArguments.height,
-                             .cam = gpuCamera, .lut_res = renderArguments.lut_res};
+    sz imageBytesCount = renderArguments.settings.width *
+                         renderArguments.settings.height * 3 * sizeof(f32);
+
+    gpu_args gpuArguments = {
+        .width = renderArguments.settings.width,
+        .height = renderArguments.settings.height,
+        .cam = gpuCamera,
+        .lut_res = renderArguments.scene.spec_model->res,
+        .lambda_min = renderArguments.settings.lambda_min,
+        .lambda_max = renderArguments.settings.lambda_max,
+        .max_bounces = renderArguments.settings.max_bounces,
+        .min_rr_depth = renderArguments.settings.min_rr_depth};
+
 
     id<MTLBuffer> imageBuffer =
         [ctx.device newBufferWithBytes:renderArguments.img
@@ -383,8 +391,8 @@ void metalRenderSample(metal_ctx* c_ctx, render_args renderArguments, uint32_t s
     [commandEncoder setBuffer:ctx.LUTDataBuffer offset:0 atIndex:9];
     [commandEncoder setBuffer:ctx.LUTScaleBuffer offset:0 atIndex:10];
 
-    MTLSize grid =
-        MTLSizeMake(renderArguments.width, renderArguments.height, 1);
+    MTLSize grid = MTLSizeMake(renderArguments.settings.width,
+                               renderArguments.settings.height, 1);
     NSUInteger tw = ctx.pipeline.threadExecutionWidth;
     NSUInteger th = ctx.pipeline.maxTotalThreadsPerThreadgroup / tw;
     MTLSize threadgroup = MTLSizeMake(tw, th, 1);
@@ -417,7 +425,7 @@ static int metal_backend_init(render_args* args) {
 static void metal_backend_render(render_args* args) {
 	struct timespec t0, t1;
 	clock_gettime(CLOCK_MONOTONIC, &t0);
-	for (sz i = 0; i < N_SAMPLES; ++i) {
+	for (sz i = 0; i < args->settings.samples; ++i) {
 		if (args->state->should_stop) break;
 		metalRenderSample((metal_ctx*)args->ctx, *args, i);
 		args->state->samples_done = i + 1;

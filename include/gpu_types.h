@@ -61,9 +61,12 @@ typedef struct {
 } gpu_camera;
 
 typedef struct {
-  const unsigned int width, height;
+  unsigned int width, height;
   gpu_camera cam;
-  const unsigned int lut_res;
+  unsigned int lut_res;
+  float lambda_min, lambda_max;
+  unsigned int max_bounces;
+  unsigned int min_rr_depth;
 } gpu_args;
 
 typedef struct {

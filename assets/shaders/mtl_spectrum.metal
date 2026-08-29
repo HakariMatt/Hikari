@@ -4,9 +4,8 @@
 #include <metal_stdlib>
 using namespace metal;
 
-#include "../../include/settings.h"
-
 #define RGB2SPEC_N_COEFFS 3
+#define CMF_NORM_K (1.0 / 106.856)
 
 struct RGB2Spec {
     uint res;
@@ -108,13 +107,13 @@ float rgb2spec_eval_precise(float3 coeffs, float lambda) {
     return fma(.5f * x, y, .5f);
 }
 
-float4 spectral_upsample(RGB2Spec model, float3 rgb, float lambda0) {
+float4 spectral_upsample(RGB2Spec model, float3 rgb, float lambda0, float lambda_min, float lambda_max) {
 	float3 coefs = rgb2spec_fetch(model, rgb);
 
 	float4 response;
 
 	for (int i = 0; i < 4; ++i) {
-		float lambda_i = wrap_wavelength(lambda0 + i * (LAMBDA_BAR / 4), LAMBDA_MIN, LAMBDA_MAX);
+		float lambda_i = wrap_wavelength(lambda0 + i * ((lambda_max - lambda_min) / 4), lambda_min, lambda_max);
 		float value = rgb2spec_eval_precise(coefs, lambda_i);
 		switch (i) {
 			case 0: response.x = value; break;

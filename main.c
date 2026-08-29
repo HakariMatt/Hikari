@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <time.h>
 #include <stdlib.h>
 #include <math.h>
@@ -7,6 +8,7 @@
 
 int main(void) {
 	HikariSettings settings = hikari_default_settings();
+	settings.samples = 256;
 	HikariContext* ctx = hikari_create(settings, "assets/luts/lut.bin");
 	if (!ctx) return 1;
 
@@ -30,12 +32,15 @@ int main(void) {
 
 	hikari_render_async(ctx);
 
+	size_t prev_sample = 0;
+	size_t curr_sample = hikari_get_samples_done(ctx);
+	// fprintf(stderr, "Sampling... [%zu/%d]\n", hikari_get_samples_done(ctx), settings.samples);
 	while(!hikari_is_done(ctx)) {
-		fprintf(stderr, "\rSampling... [%zu/%d]", hikari_get_samples_done(ctx), settings.samples);
-		fflush(stderr);
-		// int c  = getchar();
-		// if (c == 'q') hikari_render_cancel(ctx);
-		sleep(1);
+		curr_sample = hikari_get_samples_done(ctx);
+		if (prev_sample != curr_sample) {
+			fprintf(stderr, "Sampling... [%zu/%d]\n", curr_sample, settings.samples);
+			prev_sample = curr_sample;
+		}
 	}
 	printf("\n");
 

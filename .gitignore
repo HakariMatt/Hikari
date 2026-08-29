@@ -1,13 +1,7 @@
 .DS_Store
 assets/models/
 assets/scenes/
-hikari
-hikarimtl
 vec.py
 __pycache__/
-assets/shaders/shader.metallib
-obj/
 renders/
-cmf.csv
-cmf.py
 HikariRT/
