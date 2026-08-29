@@ -246,6 +246,8 @@ light_sample trace_path(ray r,
             .normal = normal,
             .true_normal = attrs.true_normal,
             .lambda0 = hero_wavelength,
+            .lambda_min = args.lambda_min,
+            .lambda_max = args.lambda_max,
             .model = model,
             .rng_state = rng_state
         };
